@@ -1,0 +1,22 @@
+フォルダー パスの一覧
+ボリューム シリアル番号は 660F-3BFB です
+C:.
+│  chema)? add core foundation DDL (P1-01-2)?
+│  CODE_OF_CONDUCT.md
+│  CONTRIBUTING.md
+│  GOVERNANCE.md
+│  LICENSE
+│  P1?06 GeminiCLI Runbook.md
+│  README.md
+│  Roadmap.md
+│  schema.sql
+│  test.txt
+│  Vision.md
+│  
+└─.github
+    │  pull_request_template.md
+    │  
+    └─ISSUE_TEMPLATE
+            bug_report.md
+            feature_request.md
+            
