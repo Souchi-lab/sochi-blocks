@@ -20,6 +20,14 @@
 
 ## 🚀 Getting Started
 
+**`.env` ファイルの準備:**
+プロジェクトルートに `.env` ファイルを作成し、以下の内容を記述してください。
+
+```
+# .env
+DATABASE_URL=postgresql://postgres:example@localhost:5432/sochi_blocks
+```
+
 最小構成でサクッと動かすための手順です。依存は **Python 3.11**, **Node.js 18 LTS**, **PostgreSQL 16** のみ！
 
 ```bash
@@ -81,7 +89,7 @@ PR テンプレは `.github/pull_request_template.md` を参照してくださ�
 
 ---
 
-## 📜 License
+## 📇 License
 
 * **Source code**: MIT License – see [`LICENSE`](./LICENSE)
 * **Educational content & images**: Creative Commons Attribution‑ShareAlike 4.0 International (CC BY‑SA 4.0) – see [https://creativecommons.org/licenses/by-sa/4.0/](https://creativecommons.org/licenses/by-sa/4.0/)
@@ -99,7 +107,7 @@ PR テンプレは `.github/pull_request_template.md` を参照してくださ�
 
 ### 📮 Contact / お問い合わせ
 
-* 提案・不具合報告は GitHub Issues へどうぞ！
+* 提案・不具告報は GitHub Issues へどう！
 * 行動規範違反の報告は `enuyama5287@gmail.com` までメールしてください。
 
 <div align="center">
