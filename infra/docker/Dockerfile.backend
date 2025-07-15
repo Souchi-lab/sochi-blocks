@@ -1,0 +1,16 @@
+FROM python:3.13-slim
+
+# Poetry
+RUN pip install --no-cache-dir poetry
+
+# 作業ディレクトリ
+WORKDIR /workspace
+
+# 依存ファイルだけコピーして install
+COPY pyproject.toml poetry.lock* ./
+RUN poetry install --no-root --only main,dev
+
+# ソースを最後にコピー（キャッシュ効率）
+COPY . .
+
+# デフォルト CMD は docker-compose 側で上書き

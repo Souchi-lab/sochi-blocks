@@ -1,0 +1,53 @@
+version: "3.9"
+
+######################################################################
+# SoChi BLOCKS ── Local Dev Compose
+#   - PostgreSQL 16  (サービス名: db)
+#   - Python backend (Poetry, Alembic 実行込み)  (サービス名: backend)
+# 将来フロントエンドやテストランナーを追加する場合は services: に追記する。
+######################################################################
+
+services:
+  # ───────────────────────────────────────────────────────── db
+  db:
+    image: postgres:16
+    container_name: sochi_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sochi_blocks
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"     # ホスト公開（不要なら削除可）
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sochi_blocks"]
+      interval: 3s
+      retries: 10
+
+  # ──────────────────────────────────────────────── Python backend
+  backend:
+    container_name: sochi_backend
+    build:
+      context: ../../        # ← ルートを build コンテキストに
+      dockerfile: infra/docker/Dockerfile.backend
+    env_file: ../../.env          # DATABASE_URL などを注入
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      /bin/bash -c "
+        mkdir -p /workspace/db/migrations/versions &&
+        poetry run alembic history &&
+        poetry run alembic stamp head &&
+        poetry run alembic revision --autogenerate -m 'initial schema' &&
+        poetry run alembic upgrade head &&
+        python backend/app.py
+      "
+    volumes:
+      - ../../:/workspace     # 編集内容を即時反映したい場合
+
+# ──────────────────────────────────────────── Named volumes
+volumes:
+  pgdata:
+    driver: local
