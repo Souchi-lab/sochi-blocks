@@ -1,0 +1,20 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Logs and temporary files
+*.log
+*.txt
+infra/docker/*.log
+infra/docker/*.txt
+infra/docker/command.txt
+
+# IDE-specific files
+.idea/
+.vscode/
+
+# Environment variables
+.env
+
+# Other
+test.txt
