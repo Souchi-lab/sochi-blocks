@@ -6,11 +6,21 @@ RUN pip install --no-cache-dir poetry
 # 作業ディレクトリ
 WORKDIR /workspace
 
-# 依存ファイルだけコピーして install
+# Poetryが仮想環境をプロジェクト内に作成しないように設定
+ENV POETRY_VIRTUALENVS_CREATE=false
+ENV POETRY_NO_INTERACTION=1
+
+# 依存ファイルだけコピーしてインストール
 COPY pyproject.toml poetry.lock* ./
 RUN poetry install --no-root --only main,dev
 
-# ソースを最後にコピー（キャッシュ効率）
+# ソースコードとマイグレーションファイルをコピー
 COPY . .
+COPY db/migrations/versions/ db/migrations/versions/
 
 # デフォルト CMD は docker-compose 側で上書き
+
+# --- Ruby for solver
+RUN apt-get update && apt-get install -y ruby ruby-json
+COPY tools/pentomino/ /opt/solver/
+ENV SOLVER_HOME=/opt/solver

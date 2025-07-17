@@ -10,6 +10,7 @@ class ContentPuzzle(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     base_puzzle_id = Column(UUID(as_uuid=True), ForeignKey("master_base_puzzle.id", ondelete="CASCADE"), nullable=False)
+    code = Column(String(16), unique=True, nullable=False)
     title = Column(String(128), nullable=False)
     description = Column(Text)
     difficulty_id = Column(UUID(as_uuid=True), ForeignKey("master_difficulty.id"), nullable=False)

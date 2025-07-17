@@ -1,4 +1,4 @@
-from sqlalchemy import Column, SmallInteger, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, SmallInteger, ForeignKey, UniqueConstraint, String
 from sqlalchemy.dialects.postgresql import UUID, CHAR
 import uuid
 
@@ -12,7 +12,8 @@ class ContentPuzzleCell(Base):
     x = Column(SmallInteger, nullable=False)
     y = Column(SmallInteger, nullable=False)
     z = Column(SmallInteger, nullable=False)
-    value = Column(CHAR(1), ForeignKey("master_piece.id"), nullable=False)
+    piece_id = Column(String(1), ForeignKey("master_piece.id"), nullable=False)
+    
 
     __table_args__ = (
         UniqueConstraint("puzzle_id", "x", "y", "z", name="uq_content_puzzle_cell"),

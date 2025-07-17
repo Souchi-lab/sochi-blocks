@@ -1,5 +1,3 @@
-version: "3.9"
-
 ######################################################################
 # SoChi BLOCKS ── Local Dev Compose
 #   - PostgreSQL 16  (サービス名: db)
@@ -35,15 +33,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: >
-      /bin/bash -c "
-        mkdir -p /workspace/db/migrations/versions &&
-        poetry run alembic history &&
-        poetry run alembic stamp head &&
-        poetry run alembic revision --autogenerate -m 'initial schema' &&
-        poetry run alembic upgrade head &&
-        python backend/app.py
-      "
+    command: poetry run python backend/app.py
     volumes:
       - ../../:/workspace     # 編集内容を即時反映したい場合
 
