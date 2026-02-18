@@ -11,8 +11,9 @@ function getParams() {
   // Support both ?id=2026-002 (new) and ?puzzle_id=5x4x3_0010 (legacy)
   const id = params.get('id');
   const puzzleId = params.get('puzzle_id');
+  // URL removed_pieces is only for capture mode (internal use)
   const removedPiecesStr = params.get('removed_pieces') ?? '';
-  const removedPieces = removedPiecesStr
+  const urlRemovedPieces = removedPiecesStr
     ? removedPiecesStr.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
   const mode = params.get('mode');
@@ -26,10 +27,10 @@ function getParams() {
   } else if (puzzleId) {
     puzzleFile = `puzzles/puzzle_${puzzleId}.json`;
   } else {
-    puzzleFile = '';  // no puzzle specified
+    puzzleFile = '';
   }
 
-  return { id: id ?? puzzleId ?? '', puzzleFile, removedPieces, capture, angle };
+  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle };
 }
 
 function App() {
@@ -38,7 +39,13 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
 
-  const { id, puzzleFile, removedPieces, capture, angle } = useMemo(getParams, []);
+  const { id, puzzleFile, urlRemovedPieces, capture, angle } = useMemo(getParams, []);
+
+  // Merge: JSON removed_pieces (primary) + URL removed_pieces (capture fallback)
+  const removedPieces = useMemo(() => {
+    const fromJson = data?.removed_pieces ?? [];
+    return fromJson.length > 0 ? fromJson : urlRemovedPieces;
+  }, [data, urlRemovedPieces]);
 
   const hiddenPieces = useMemo(
     () => (showAnswer ? undefined : new Set(removedPieces)),
