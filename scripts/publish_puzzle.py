@@ -96,10 +96,9 @@ def main() -> None:
         json.dump(puzzle_data, f, separators=(",", ":"))
     print(f"[OK] Puzzle JSON  -> {dst_json}")
 
-    # Write clean version (no removed_pieces) to frontend for 3D capture
-    fe_data = {k: v for k, v in puzzle_data.items() if k != "removed_pieces"}
+    # Also write to frontend/public/puzzles/ (with removed_pieces for viewer)
     with open(fe_pub_json, "w") as f:
-        json.dump(fe_data, f, indent=2)
+        json.dump(puzzle_data, f, indent=2)
     print(f"[OK] Frontend JSON -> {fe_pub_json}")
 
     if removed_set:

@@ -242,9 +242,14 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
     with open(src_json) as f:
         puzzle_data = json.load(f)
     puzzle_data["removed_pieces"] = removed
+    # docs/puzzles/ — minified
     with open(dst_json, "w") as f:
         json.dump(puzzle_data, f, separators=(",", ":"))
     print(f"  [OK] docs JSON -> {dst_json}")
+    # frontend/public/puzzles/ — also embed removed_pieces for viewer
+    with open(src_json, "w") as f:
+        json.dump(puzzle_data, f, indent=2)
+    print(f"  [OK] frontend JSON updated -> {src_json}")
 
     # 6) Generate Instagram images into docs/images/YYYYMMDD/###/
     img_dir = DOCS_DIR / "images" / date_str / f"{seq_number:03d}"
