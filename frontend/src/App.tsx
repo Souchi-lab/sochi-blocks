@@ -168,15 +168,15 @@ function App() {
         captureAngle={angle}
       />
       <BrandOverlay />
+      {!capture && hasProblemMode && (
+        <button
+          className="toggle-btn"
+          onClick={() => setShowAnswer((prev) => !prev)}
+        >
+          {showAnswer ? 'Problem' : 'Answer'}
+        </button>
+      )}
       <div className="bottom-controls">
-        {!capture && hasProblemMode && (
-          <button
-            className="toggle-btn"
-            onClick={() => setShowAnswer((prev) => !prev)}
-          >
-            {showAnswer ? 'Problem' : 'Answer'}
-          </button>
-        )}
         <MissingOverlay pieces={removedPieces} />
       </div>
     </div>
