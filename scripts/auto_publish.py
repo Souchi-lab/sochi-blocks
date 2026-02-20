@@ -264,10 +264,10 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
     print("[4/5] Generating 3D captures...")
     capture_3d_images(pub_id, removed_str, img_dir)
 
-    # Rename 3D files
+    # Rename 3D files (capture_3d_images now outputs 02_3d_x.png / 03_3d_y.png)
     for old_name, new_name in [
-        (f"{pub_id}_3d_x.png", "3d_x.png"),
-        (f"{pub_id}_3d_y.png", "3d_y.png"),
+        ("02_3d_x.png", "3d_x.png"),
+        ("03_3d_y.png", "3d_y.png"),
     ]:
         old_path = img_dir / old_name
         new_path = img_dir / new_name

@@ -10,10 +10,14 @@ Output: out/instagram/<puzzle_id>/
   url.txt         — Viewer URL
 
 Usage:
+  python scripts/generate_instagram_images.py --puzzle_id 20260219_002
+
+  # removed_pieces and difficulty are auto-detected (JSON / DB).
+  # Override if needed:
   python scripts/generate_instagram_images.py \
     --puzzle_id 20260219_002 \
     --removed_pieces V,W \
-    --difficulty Normal
+    --difficulty Hard
 """
 
 import argparse
@@ -632,6 +636,36 @@ def open_folder(path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# DB helpers (optional — graceful fallback if DB unavailable)
+# ---------------------------------------------------------------------------
+
+_DIFFICULTY_LABELS = {
+    "a1b2c3d4-0001-4000-8000-000000000001": "Easy",
+    "a1b2c3d4-0002-4000-8000-000000000002": "Medium",
+    "a1b2c3d4-0003-4000-8000-000000000003": "Hard",
+}
+
+
+def _get_difficulty_from_db(puzzle_id: str) -> str | None:
+    try:
+        import os
+        from sqlalchemy import create_engine, text as sa_text
+        db_url = os.environ.get(
+            "DATABASE_URL",
+            "postgresql://postgres:postgres@localhost:5433/sochi_blocks",
+        )
+        engine = create_engine(db_url)
+        q = sa_text("SELECT difficulty_id FROM content_puzzle WHERE code = :code LIMIT 1")
+        with engine.connect() as conn:
+            row = conn.execute(q, {"code": puzzle_id}).fetchone()
+        if row:
+            return _DIFFICULTY_LABELS.get(str(row.difficulty_id))
+    except Exception:
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -640,19 +674,14 @@ def main() -> None:
         description="Generate Instagram images for a SoChi BLOCKS puzzle"
     )
     parser.add_argument("--puzzle_id", required=True, help="e.g. 20260219_002")
-    parser.add_argument("--removed_pieces", default="", help="e.g. V,W")
-    parser.add_argument("--difficulty", default="—", help="e.g. Easy / Normal / Hard")
+    parser.add_argument("--removed_pieces", default="",
+                        help="override removed pieces (default: read from puzzle JSON)")
+    parser.add_argument("--difficulty", default="",
+                        help="override difficulty label (default: auto from DB)")
     parser.add_argument("--output_dir", default="out/instagram")
     args = parser.parse_args()
 
     puzzle_id: str = args.puzzle_id
-    removed_pieces_str: str = args.removed_pieces
-    difficulty: str = args.difficulty
-    removed_set = (
-        {s.strip() for s in removed_pieces_str.split(",") if s.strip()}
-        if removed_pieces_str
-        else set()
-    )
 
     output_dir = Path(args.output_dir) / puzzle_id
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -661,6 +690,26 @@ def main() -> None:
     if not puzzle_path.exists():
         print(f"ERROR: Puzzle file not found: {puzzle_path}", file=sys.stderr)
         sys.exit(1)
+
+    # ── removed_pieces: from JSON, CLI overrides ──────────────────────
+    with open(puzzle_path) as f:
+        puzzle_data = json.load(f)
+
+    if args.removed_pieces:
+        removed_list = [s.strip() for s in args.removed_pieces.split(",") if s.strip()]
+    else:
+        removed_list = puzzle_data.get("removed_pieces", [])
+
+    removed_set = set(removed_list)
+    removed_pieces_str = ",".join(removed_list)
+    print(f"  removed_pieces: {removed_list or '(none)'}")
+
+    # ── difficulty: from DB, CLI overrides ────────────────────────────
+    if args.difficulty:
+        difficulty = args.difficulty
+    else:
+        difficulty = _get_difficulty_from_db(puzzle_id) or "—"
+    print(f"  difficulty: {difficulty}")
 
     colors = load_piece_colors()
     piece_shapes = load_master_pieces()
