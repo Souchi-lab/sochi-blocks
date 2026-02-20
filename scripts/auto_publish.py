@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 """
-Auto-publish a puzzle: select from DB, generate images, deploy to GitHub Pages.
+Auto-publish puzzles end-to-end: DB → images → caption → GitHub Pages.
 
-Usage:
+One command to do everything for a full day:
+  python scripts/auto_publish.py --all
+
+Flow per puzzle:
+  1) Select dissimilar puzzle from DB
+  2) Export puzzle JSON
+  3) Generate 2D layer image
+  4) Generate 3D captures (Playwright)
+  5) Save to DB + write caption.txt / url.txt
+  6) git add / commit / push → GitHub Pages live
+
+Single difficulty:
   python scripts/auto_publish.py --difficulty easy
-  python scripts/auto_publish.py --difficulty medium
-  python scripts/auto_publish.py --difficulty hard
-  python scripts/auto_publish.py --all   # publish easy + medium + hard at once
 """
 
 import argparse
@@ -33,6 +41,7 @@ from generate_instagram_images import (
     capture_3d_images,
     load_piece_colors,
     load_master_pieces,
+    write_caption,
 )
 
 ALL_PIECES = list("FILNPTUVWXYZ")
@@ -278,8 +287,11 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
     print("[5/5] Saving to database...")
     save_to_db(engine, puzzle_name, difficulty, removed, pub_id)
 
-    # 8) Print result
+    # 8) caption.txt / url.txt alongside images
     viewer_url = f"{PAGES_BASE_URL}/viewer.html?puzzle_id={pub_id}"
+    write_caption(img_dir, pub_id, diff_cfg["label"])
+    print(f"  [OK] caption.txt -> {img_dir / 'caption.txt'}")
+
     print(f"\n  [OK] Published: {pub_id}")
     print(f"  [LINK] {viewer_url}")
     print(f"  Images: {img_dir}")
@@ -324,11 +336,30 @@ def main():
     print("=" * 60)
     for r in results:
         print(f"  {r['code']:10s} [{r['difficulty']:6s}] {r['puzzle_name']}  removed={r['removed']}")
-    print()
-    print("  Next steps:")
-    print('    git add docs/')
-    print('    git commit -m "puzzle: auto-publish"')
-    print('    git push origin main')
+        print(f"             {r['url']}")
+    print("=" * 60)
+
+    # Git publish
+    date_str = datetime.utcnow().strftime("%Y%m%d")
+    codes = " ".join(r["code"] for r in results)
+    commit_msg = f"puzzle: publish {date_str} ({codes})"
+
+    print("\n  Publishing to GitHub Pages...")
+    try:
+        import subprocess as _sp
+        _sp.run(["git", "add", "docs/", "frontend/public/puzzles/"],
+                check=True, cwd=str(PROJECT_ROOT))
+        _sp.run(["git", "commit", "-m", commit_msg],
+                check=True, cwd=str(PROJECT_ROOT))
+        _sp.run(["git", "push", "origin", "main"],
+                check=True, cwd=str(PROJECT_ROOT))
+        print("  [OK] Pushed to GitHub Pages!")
+    except Exception as e:
+        print(f"  [WARN] git push failed: {e}")
+        print("  Run manually:")
+        print(f'    git add docs/ frontend/public/puzzles/')
+        print(f'    git commit -m "{commit_msg}"')
+        print('    git push origin main')
     print("=" * 60)
 
 
