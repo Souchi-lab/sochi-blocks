@@ -8,6 +8,9 @@ export default defineConfig({
   build: {
     outDir: '../docs',
     emptyOutDir: false,
+    rollupOptions: {
+      input: './viewer.html',
+    },
   },
   server: {
     host: '0.0.0.0',

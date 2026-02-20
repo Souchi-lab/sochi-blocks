@@ -1,14 +1,170 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-    <script type="module" crossorigin src="./assets/index-DvJ2dj6L.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-C8Ix22kN.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoChi BLOCKS — Puzzle Index</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f5f5f5;
+      color: #1e1e1e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: rgba(255,255,255,0.97);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+    }
+
+    .brand-group { display: flex; flex-direction: column; gap: 1px; }
+    .brand-text  { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.04em; line-height: 1.1; }
+    .brand-tagline { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.08em; color: #888; }
+
+    /* ── Content ── */
+    main { max-width: 800px; margin: 0 auto; padding: 24px 16px 48px; }
+
+    h2 {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #999;
+      text-transform: uppercase;
+      margin: 28px 0 10px;
+    }
+
+    /* ── Puzzle cards ── */
+    .puzzle-group { display: flex; flex-direction: column; gap: 8px; }
+
+    .puzzle-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+      padding: 14px 18px;
+      text-decoration: none;
+      color: inherit;
+      transition: box-shadow 0.15s, transform 0.1s;
+    }
+
+    .puzzle-card:hover {
+      box-shadow: 0 4px 14px rgba(0,0,0,0.13);
+      transform: translateY(-1px);
+    }
+
+    .diff-badge {
+      flex-shrink: 0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 3px 9px;
+      border-radius: 20px;
+      min-width: 62px;
+      text-align: center;
+    }
+    .diff-easy   { background: #e6f9ee; color: #1a7f45; }
+    .diff-medium { background: #fff3e0; color: #b45309; }
+    .diff-hard   { background: #fde8e8; color: #b91c1c; }
+    .diff-other  { background: #eee;    color: #666; }
+
+    .card-info { flex: 1; min-width: 0; }
+    .card-id {
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .card-removed {
+      font-size: 0.75rem;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .card-arrow {
+      font-size: 1.1rem;
+      color: #bbb;
+      flex-shrink: 0;
+    }
+
+    /* ── Loading / Error ── */
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      font-size: 1rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-group">
+      <span class="brand-text">SoChi BLOCKS</span>
+      <span class="brand-tagline">think in 3D</span>
+    </div>
+  </header>
+
+  <main id="root">
+    <div class="status">Loading puzzles...</div>
+  </main>
+
+  <script>
+    const VIEWER = './viewer.html';
+    const DIFF_CLASS = { Easy: 'diff-easy', Medium: 'diff-medium', Hard: 'diff-hard' };
+
+    function diffBadge(d) {
+      const cls = DIFF_CLASS[d] || 'diff-other';
+      return `<span class="diff-badge ${cls}">${d || '—'}</span>`;
+    }
+
+    function renderGroup(date, puzzles) {
+      const label = date || 'Unknown';
+      const items = puzzles.map(p => {
+        const removed = p.removed && p.removed.length
+          ? `Missing: ${p.removed.join(', ')}`
+          : 'Full solve';
+        const url = `${VIEWER}?puzzle_id=${p.id}`;
+        return `
+          <a class="puzzle-card" href="${url}">
+            ${diffBadge(p.difficulty)}
+            <div class="card-info">
+              <div class="card-id">${p.id}</div>
+              <div class="card-removed">${removed}</div>
+            </div>
+            <span class="card-arrow">&#8250;</span>
+          </a>`;
+      }).join('');
+      return `<h2>${label}</h2><div class="puzzle-group">${items}</div>`;
+    }
+
+    fetch('./puzzles/manifest.json')
+      .then(r => { if (!r.ok) throw new Error('manifest not found'); return r.json(); })
+      .then(data => {
+        if (!data.length) {
+          document.getElementById('root').innerHTML = '<div class="status">No puzzles published yet.</div>';
+          return;
+        }
+        // Group by date, newest first
+        const grouped = {};
+        for (const p of data) {
+          const d = p.date || '';
+          (grouped[d] = grouped[d] || []).push(p);
+        }
+        const dates = Object.keys(grouped).sort().reverse();
+        document.getElementById('root').innerHTML = dates.map(d => renderGroup(d, grouped[d])).join('');
+      })
+      .catch(e => {
+        document.getElementById('root').innerHTML = `<div class="status">Error: ${e.message}</div>`;
+      });
+  </script>
+</body>
 </html>

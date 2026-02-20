@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node -e \"const fs=require('fs');const h=fs.readFileSync('../docs/index.html','utf8').replace('<title>frontend</title>','<title>SoChi BLOCKS — 3D Viewer</title>');fs.writeFileSync('../docs/viewer.html',h);\"",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

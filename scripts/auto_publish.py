@@ -46,6 +46,12 @@ from generate_instagram_images import (
 
 ALL_PIECES = list("FILNPTUVWXYZ")
 
+_DIFFICULTY_LABELS = {
+    "a1b2c3d4-0001-4000-8000-000000000001": "Easy",
+    "a1b2c3d4-0002-4000-8000-000000000002": "Medium",
+    "a1b2c3d4-0003-4000-8000-000000000003": "Hard",
+}
+
 DIFFICULTY_MAP = {
     "easy":   {"remove": 2, "label": "Easy",   "id": "a1b2c3d4-0001-4000-8000-000000000001"},
     "medium": {"remove": 4, "label": "Medium", "id": "a1b2c3d4-0002-4000-8000-000000000002"},
@@ -59,6 +65,40 @@ AUTHOR_ID = "f44c725b-8032-43cf-92aa-a3342a90ac63"
 def get_engine():
     db_url = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:5433/sochi_blocks")
     return create_engine(db_url)
+
+
+def generate_manifest(engine) -> None:
+    """Regenerate docs/puzzles/manifest.json from DB + puzzle JSONs."""
+    q = text("""
+        SELECT code, difficulty_id, published_at
+        FROM content_puzzle
+        ORDER BY published_at DESC NULLS LAST, code DESC
+    """)
+    with engine.connect() as conn:
+        rows = conn.execute(q).fetchall()
+
+    manifest = []
+    for row in rows:
+        puzzle_json = PUZZLE_DIR / f"puzzle_{row.code}.json"
+        if not puzzle_json.exists():
+            continue
+        with open(puzzle_json) as f:
+            pdata = json.load(f)
+        removed = pdata.get("removed_pieces", [])
+        diff_label = _DIFFICULTY_LABELS.get(str(row.difficulty_id), "—")
+        date_str = row.published_at.strftime("%Y-%m-%d") if row.published_at else ""
+        manifest.append({
+            "id": row.code,
+            "date": date_str,
+            "difficulty": diff_label,
+            "removed": removed,
+        })
+
+    manifest_path = DOCS_DIR / "puzzles" / "manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, separators=(",", ":"))
+    print(f"  [OK] manifest.json ({len(manifest)} puzzles) -> {manifest_path}")
 
 
 def get_fingerprint(engine, puzzle_name: str) -> str:
@@ -338,6 +378,10 @@ def main():
         print(f"  {r['code']:10s} [{r['difficulty']:6s}] {r['puzzle_name']}  removed={r['removed']}")
         print(f"             {r['url']}")
     print("=" * 60)
+
+    # Regenerate manifest.json
+    print("\n  Regenerating manifest.json...")
+    generate_manifest(engine)
 
     # Git publish
     date_str = datetime.utcnow().strftime("%Y%m%d")
