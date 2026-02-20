@@ -67,6 +67,9 @@ def get_engine():
     return create_engine(db_url)
 
 
+_REMOVE_TO_DIFF = {2: "Easy", 4: "Medium", 6: "Hard"}
+
+
 def generate_manifest(engine) -> None:
     """Regenerate docs/puzzles/manifest.json from DB + puzzle JSONs."""
     q = text("""
@@ -85,7 +88,8 @@ def generate_manifest(engine) -> None:
         with open(puzzle_json) as f:
             pdata = json.load(f)
         removed = pdata.get("removed_pieces", [])
-        diff_label = _DIFFICULTY_LABELS.get(str(row.difficulty_id), "—")
+        diff_label = _DIFFICULTY_LABELS.get(str(row.difficulty_id)) \
+            or _REMOVE_TO_DIFF.get(len(removed), "")
         date_str = row.published_at.strftime("%Y-%m-%d") if row.published_at else ""
         manifest.append({
             "id": row.code,
