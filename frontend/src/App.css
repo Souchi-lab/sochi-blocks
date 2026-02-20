@@ -33,7 +33,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 0 16px;
-  height: 64px;
+  height: 72px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   z-index: 10;
@@ -41,9 +41,10 @@
 
 /* ── Logo image (normal header) ─────────────────────────── */
 .brand-logo-img {
-  height: 44px;
+  flex: 0 1 auto;
+  height: clamp(36px, 8vw, 56px);
   width: auto;
-  max-width: 60vw;       /* never overflow on narrow screens */
+  max-width: min(240px, 55vw);
   object-fit: contain;
   display: block;
 }
