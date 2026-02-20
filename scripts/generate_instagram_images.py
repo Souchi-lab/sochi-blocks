@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """
-Generate 3 Instagram images (1080x1080) for a given puzzle:
-  1) 2D layer image  (Pillow)
-  2) 3D Angle X      (Playwright capture)
-  3) 3D Angle Y      (Playwright capture)
+Generate Instagram post assets for a SoChi BLOCKS puzzle.
+
+Output: out/instagram/<puzzle_id>/
+  01_2d.png       — 2D layer image (Pillow)
+  02_3d_x.png     — 3D Angle X (Playwright)
+  03_3d_y.png     — 3D Angle Y (Playwright)
+  caption.txt     — English caption with hashtags (UTF-8)
+  url.txt         — Viewer URL
 
 Usage:
   python scripts/generate_instagram_images.py \
-    --puzzle_id 5x4x3_0010 \
+    --puzzle_id 20260219_002 \
     --removed_pieces V,W \
-    --output_dir output/instagram
+    --difficulty Normal
 """
 
 import argparse
@@ -532,7 +536,7 @@ def capture_3d_images(
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(viewport={"width": 1080, "height": 1080})
 
-            for angle, suffix in [("x", "3d_x"), ("y", "3d_y")]:
+            for angle, filename in [("x", "02_3d_x.png"), ("y", "03_3d_y.png")]:
                 url = (
                     f"{DEV_SERVER_URL}/"
                     f"?puzzle_id={puzzle_id}"
@@ -549,7 +553,7 @@ def capture_3d_images(
                 )
                 page.wait_for_timeout(300)
 
-                out_path = output_dir / f"{puzzle_id}_{suffix}.png"
+                out_path = output_dir / filename
                 page.screenshot(path=str(out_path))
                 print(f"  -> {out_path}")
 
@@ -561,6 +565,73 @@ def capture_3d_images(
 
 
 # ---------------------------------------------------------------------------
+# Caption / URL helpers
+# ---------------------------------------------------------------------------
+
+VIEWER_BASE_URL = "https://souchi-lab.github.io/sochi-blocks/viewer.html"
+
+CAPTION_TEMPLATE = """\
+🧩 SoChi BLOCKS — THINK IN 3D.
+
+Puzzle: {puzzle_id}
+Difficulty: {difficulty}
+
+Can you solve this in 3D?
+
+Try it here:
+{viewer_url}
+
+#SoChiBLOCKS #pentomino #3dpuzzle #braintraining #thinkin3d #puzzlechallenge"""
+
+
+def build_viewer_url(puzzle_id: str) -> str:
+    return f"{VIEWER_BASE_URL}?puzzle_id={puzzle_id}"
+
+
+def write_caption(output_dir: Path, puzzle_id: str, difficulty: str) -> str:
+    viewer_url = build_viewer_url(puzzle_id)
+    caption = CAPTION_TEMPLATE.format(
+        puzzle_id=puzzle_id,
+        difficulty=difficulty,
+        viewer_url=viewer_url,
+    )
+    (output_dir / "caption.txt").write_text(caption, encoding="utf-8")
+    (output_dir / "url.txt").write_text(viewer_url, encoding="utf-8")
+    return caption
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """Copy text to clipboard. Returns True on success."""
+    import platform
+    try:
+        system = platform.system()
+        if system == "Windows":
+            subprocess.run(
+                ["clip"], input=text.encode("utf-16-le"), check=True
+            )
+        elif system == "Darwin":
+            subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
+        else:
+            subprocess.run(["xclip", "-selection", "clipboard"],
+                           input=text.encode("utf-8"), check=True)
+        return True
+    except Exception:
+        return False
+
+
+def open_folder(path: Path) -> None:
+    """Open folder in OS file explorer."""
+    import platform
+    system = platform.system()
+    if system == "Windows":
+        subprocess.Popen(["explorer", str(path)])
+    elif system == "Darwin":
+        subprocess.Popen(["open", str(path)])
+    else:
+        subprocess.Popen(["xdg-open", str(path)])
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -568,19 +639,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate Instagram images for a SoChi BLOCKS puzzle"
     )
-    parser.add_argument("--puzzle_id", required=True, help="e.g. 5x4x3_0010")
+    parser.add_argument("--puzzle_id", required=True, help="e.g. 20260219_002")
     parser.add_argument("--removed_pieces", default="", help="e.g. V,W")
-    parser.add_argument("--output_dir", default="output/instagram")
+    parser.add_argument("--difficulty", default="—", help="e.g. Easy / Normal / Hard")
+    parser.add_argument("--output_dir", default="out/instagram")
     args = parser.parse_args()
 
     puzzle_id: str = args.puzzle_id
     removed_pieces_str: str = args.removed_pieces
+    difficulty: str = args.difficulty
     removed_set = (
         {s.strip() for s in removed_pieces_str.split(",") if s.strip()}
         if removed_pieces_str
         else set()
     )
-    output_dir = Path(args.output_dir)
+
+    output_dir = Path(args.output_dir) / puzzle_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
     puzzle_path = PUZZLE_DIR / f"puzzle_{puzzle_id}.json"
@@ -594,18 +668,31 @@ def main() -> None:
     print(f"Generating images for puzzle {puzzle_id} ...")
 
     # 1) 2D Layer image
-    print("[1/3] 2D Layer image")
+    print("[1/4] 2D Layer image")
     generate_layer_image(
-        puzzle_path, colors, removed_set, output_dir / f"{puzzle_id}_layer.png",
+        puzzle_path, colors, removed_set, output_dir / "01_2d.png",
         piece_shapes,
     )
 
     # 2-3) 3D captures
-    print("[2/3] 3D Angle X")
-    print("[3/3] 3D Angle Y")
+    print("[2/4] 3D Angle X")
+    print("[3/4] 3D Angle Y")
     capture_3d_images(puzzle_id, removed_pieces_str, output_dir)
 
-    print("Done!")
+    # 4) Caption + URL
+    print("[4/4] caption.txt / url.txt")
+    caption = write_caption(output_dir, puzzle_id, difficulty)
+    print(f"  -> {output_dir / 'caption.txt'}")
+    print(f"  -> {output_dir / 'url.txt'}")
+
+    # Copy caption to clipboard
+    if copy_to_clipboard(caption):
+        print("  caption.txt copied to clipboard!")
+    else:
+        print("  (clipboard copy skipped)")
+
+    print(f"\nDone! Opening: {output_dir}")
+    open_folder(output_dir)
 
 
 if __name__ == "__main__":
