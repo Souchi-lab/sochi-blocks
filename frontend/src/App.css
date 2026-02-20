@@ -39,13 +39,29 @@
   z-index: 10;
 }
 
-/* ── Brand text (normal header) ─────────────────────────── */
+/* ── Brand group (normal header) ────────────────────────── */
+.brand-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .brand-text {
   font-family: 'Arial', sans-serif;
   font-size: clamp(1rem, 4vw, 1.4rem);
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #1e1e1e;
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
+.brand-tagline {
+  font-family: 'Arial', sans-serif;
+  font-size: clamp(0.6rem, 2.5vw, 0.75rem);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: #888;
   white-space: nowrap;
 }
 
