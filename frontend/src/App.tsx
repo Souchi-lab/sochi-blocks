@@ -142,7 +142,7 @@ function App() {
       <div className="capture-root">
         <Viewer data={data} hiddenPieces={hiddenPieces} capture={true} captureAngle={angle} />
         <div className="capture-brand">
-          <img src="/logo.png" alt="SoChi BLOCKS" className="capture-logo-img" />
+          <span className="brand-text">SoChi BLOCKS</span>
         </div>
         {removedPieces.length > 0 && (
           <div className="capture-missing">
@@ -158,7 +158,7 @@ function App() {
     <div className="app-layout">
       {/* ① Header: logo left + button right */}
       <header className="app-header">
-        <img src="/logo.png" alt="SoChi BLOCKS" className="brand-logo-img" />
+        <span className="brand-text">SoChi BLOCKS</span>
         {hasProblemMode && (
           <button
             className="toggle-btn"

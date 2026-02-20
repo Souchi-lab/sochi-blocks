@@ -33,20 +33,20 @@
   justify-content: space-between;
   gap: 16px;
   padding: 0 16px;
-  height: 72px;
+  height: 56px;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   z-index: 10;
 }
 
-/* ── Logo image (normal header) ─────────────────────────── */
-.brand-logo-img {
-  flex: 0 1 auto;
-  height: clamp(36px, 8vw, 56px);
-  width: auto;
-  max-width: min(240px, 55vw);
-  object-fit: contain;
-  display: block;
+/* ── Brand text (normal header) ─────────────────────────── */
+.brand-text {
+  font-family: 'Arial', sans-serif;
+  font-size: clamp(1rem, 4vw, 1.4rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #1e1e1e;
+  white-space: nowrap;
 }
 
 /* ── Toggle button (inside header) ─────────────────────── */
@@ -159,12 +159,9 @@
   pointer-events: none;
 }
 
-/* ── Logo image (capture overlay) ──────────────────────── */
-.capture-logo-img {
-  height: 56px;
-  width: auto;
-  object-fit: contain;
-  display: block;
+/* ── Brand text (capture overlay) ──────────────────────── */
+.capture-brand .brand-text {
+  font-size: 1.6rem;
 }
 
 .capture-missing {
