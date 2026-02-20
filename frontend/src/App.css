@@ -39,33 +39,13 @@
   z-index: 10;
 }
 
-.brand-logo {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;          /* allow text to shrink on small screens */
-  overflow: hidden;
-}
-
-.brand-title {
-  font-family: 'Arial', sans-serif;
-  font-size: clamp(0.80rem, 3.2vw, 1.2rem);
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  color: #1e1e1e;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.brand-tagline {
-  font-family: 'Arial', sans-serif;
-  font-size: clamp(0.52rem, 1.4vw, 0.68rem);
-  letter-spacing: 0.18em;
-  color: #5a5a5a;
-  line-height: 1;
-  white-space: nowrap;
+/* ── Logo image (normal header) ─────────────────────────── */
+.brand-logo-img {
+  height: 44px;
+  width: auto;
+  max-width: 60vw;       /* never overflow on narrow screens */
+  object-fit: contain;
+  display: block;
 }
 
 /* ── Toggle button (inside header) ─────────────────────── */
@@ -176,6 +156,14 @@
   padding: 14px 0 11px;
   background: rgba(255, 255, 255, 0.90);
   pointer-events: none;
+}
+
+/* ── Logo image (capture overlay) ──────────────────────── */
+.capture-logo-img {
+  height: 56px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .capture-missing {
