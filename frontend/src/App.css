@@ -16,12 +16,21 @@
   color: #666;
 }
 
-/* ══ NORMAL MODE — flex 3-section layout ════════════════════ */
+/* ══ NORMAL MODE ═════════════════════════════════════════════ */
 
 .app-layout {
   display: flex;
   flex-direction: column;
   height: 100dvh;        /* dynamic viewport height: iPhone Safari safe */
+  overflow: hidden;
+}
+
+/* ── app-body: viewer + sidebar ─────────────────────────── */
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column; /* mobile: stacked */
   overflow: hidden;
 }
 
@@ -37,6 +46,35 @@
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   z-index: 10;
+}
+
+/* ── Header left group (back button + brand) ────────────── */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ── Back-to-index link ──────────────────────────────────── */
+.back-btn {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #666;
+  text-decoration: none;
+  border: 1.5px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.back-btn:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+  color: #333;
 }
 
 /* ── Brand group (normal header) ────────────────────────── */
@@ -65,6 +103,27 @@
   white-space: nowrap;
 }
 
+/* ── Header right group (mistake badge + toggle) ────────── */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Mistake counter badge ──────────────────────────────── */
+.mistake-badge {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.80rem;
+  font-weight: 700;
+  color: #e53e3e;
+  background: #fff5f5;
+  border: 1.5px solid #feb2b2;
+  border-radius: 6px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
 /* ── Toggle button (inside header) ─────────────────────── */
 .toggle-btn {
   flex-shrink: 0;
@@ -84,13 +143,47 @@
   background: #555;
 }
 
-/* ── ② 3D Viewer area ───────────────────────────────────── */
-.viewer-area {
-  flex: 1;
-  min-height: 0;         /* crucial: lets flex child shrink below content height */
+/* ── Reset button (inside header, game mode only) ─── */
+.reset-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
 }
 
-/* ── ③ Missing pieces section ───────────────────────────── */
+.reset-btn:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+/* ── Viewer area ────────────────────────────────────────── */
+.viewer-area {
+  flex: 1;
+  min-height: 0;     /* crucial: flex child can shrink below content height */
+  min-width: 0;
+  position: relative;
+}
+
+/* ── Sidebar (mobile: below viewer; PC: right column) ───── */
+.game-sidebar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.08);
+  /* Mobile: cap height so the 3D viewer always stays visible */
+  max-height: 45dvh;
+  overflow-y: auto;
+}
+
+/* ── Missing / tray section ─────────────────────────────── */
 .missing-section {
   flex-shrink: 0;
 }
@@ -149,6 +242,327 @@
   font-family: 'Arial', sans-serif;
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+/* ══ GAME MIDDLE — piece preview with drag-to-rotate ══════════ */
+
+.game-middle {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.stage-panel {
+  width: 130px;
+  height: 130px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0f0f0;
+  transition: box-shadow 0.15s;  /* smooth add/remove of green glow */
+}
+
+/* Piece name label above the 3D stage */
+.stage-piece-label {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.80rem;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+}
+
+/* Green glow when selected piece's rotation fits its region */
+.stage-panel--fits {
+  box-shadow: 0 0 0 3px #38a169;
+}
+
+.drag-hint {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.60rem;
+  color: #aaa;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+@media (pointer: coarse) {
+  .hint-kbd { display: none; }
+}
+
+/* Z-axis rotation buttons below stage panel */
+.z-rotation-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rot-z-btn {
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid #ccc;
+  border-radius: 7px;
+  background: #f5f5f5;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+
+.rot-z-btn:hover {
+  background: #e8e8e8;
+  border-color: #999;
+}
+
+.rot-z-btn:active {
+  background: #ddd;
+}
+
+.z-hint {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.65rem;
+  color: #aaa;
+  user-select: none;
+}
+
+/* ══ PIECE TRAY (game mode) ══════════════════════════════════ */
+
+.piece-tray {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px 14px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.tray-label {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #555;
+}
+
+.tray-pieces {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.tray-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 14px;
+  border: 2.5px solid transparent;
+  border-radius: 10px;
+  background: #f9f9f9;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, opacity 0.2s;
+}
+
+.tray-card:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+.tray-card--selected {
+  border-color: #333 !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.12);
+}
+
+.tray-card--placed {
+  opacity: 0.35;
+}
+
+.tray-card--placed:hover {
+  opacity: 0.55;
+  border-color: #ccc;
+  background: #f5f5f5;
+}
+
+.tray-card--error {
+  border-color: #e53e3e !important;
+  background: #fff5f5 !important;
+  animation: tray-shake 0.35s ease;
+}
+
+@keyframes tray-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  60%       { transform: translateX(5px); }
+  80%       { transform: translateX(-3px); }
+}
+
+/* ══ VICTORY OVERLAY ══════════════════════════════════════════ */
+
+.victory-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  animation: victory-fade 0.3s ease;
+}
+
+@keyframes victory-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.victory-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.victory-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.victory-title {
+  font-family: 'Arial', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1e1e1e;
+}
+
+.victory-mistakes {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.victory-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.victory-restart,
+.victory-view-solution {
+  padding: 10px 24px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.victory-restart {
+  background: #333;
+  color: #fff;
+}
+
+.victory-restart:hover {
+  background: #555;
+}
+
+.victory-view-solution {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 2px solid #a5d6a7;
+}
+
+.victory-view-solution:hover {
+  background: #c8e6c9;
+}
+
+/* ══ PC LAYOUT (≥ 768px) ════════════════════════════════════ */
+
+@media (min-width: 768px) {
+  /* Body becomes a horizontal row */
+  .app-body {
+    flex-direction: row;
+  }
+
+  /* Right sidebar: fixed width, full height, scrollable */
+  .game-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    box-shadow: none;
+    border-left: 1px solid #e8e8e8;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    /* Reset mobile max-height — PC sidebar fills full height */
+    max-height: none;
+  }
+
+  /* Piece preview panel: full sidebar width */
+  .game-middle {
+    padding: 16px 16px 12px;
+    gap: 8px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .stage-panel {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;   /* square, fills sidebar width */
+    border-radius: 12px;
+  }
+
+  /* Tray fills remaining sidebar space */
+  .missing-section {
+    flex: 1;
+  }
+
+  .missing-overlay {
+    padding: 14px 16px 16px;
+    height: 100%;
+    align-items: flex-start;
+  }
+
+  /* Tray cards: horizontal row with piece shape + label */
+  .piece-tray {
+    box-shadow: none;
+    width: 100%;
+    align-items: flex-start;
+    padding: 0;
+  }
+
+  .tray-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.10em;
+  }
+
+  .tray-pieces {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .tray-card {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 10px 14px;
+    width: 100%;
+  }
 }
 
 /* ══ CAPTURE MODE — full-viewport + absolute overlays ═══════ */
