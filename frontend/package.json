@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "generate-sns": "node scripts/generate_sns_video.js"
+    "generate-sns": "node scripts/generate_sns_video.js",
+    "generate-tutorial": "node scripts/generate_tutorial_video.js"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

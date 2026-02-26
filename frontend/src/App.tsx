@@ -287,7 +287,9 @@ function App() {
     gameState,
     selectPiece,
     placePiece,
-    rotate
+    rotate,
+    setRotation,
+    setCursorIndex,
   });
 
   if (error) return <div className="status">Error: {error}</div>;
