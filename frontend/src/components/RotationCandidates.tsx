@@ -48,10 +48,9 @@ type Props = {
   /** Pre-filtered rotation indices (placeable-only). Falls back to all unique rotations. */
   candidateIndices?: number[];
   onSelect: (index: number) => void;
-  onReset: () => void;
 };
 
-export function RotationCandidates({ piece, currentRotIndex, isFitting, candidateIndices, onSelect, onReset }: Props) {
+export function RotationCandidates({ piece, currentRotIndex, isFitting, candidateIndices, onSelect }: Props) {
   const shape = useMemo(() => getPieceShape(piece) as Vec3[], [piece]);
   const allIndices = useMemo(() => uniqueRotationIndices(shape), [shape]);
 
@@ -103,9 +102,6 @@ export function RotationCandidates({ piece, currentRotIndex, isFitting, candidat
       <div className="rot-count-label">
         {countLabel}
       </div>
-      <button className="rot-reset-btn" onClick={onReset} title="姿勢をリセット (R)">
-        R
-      </button>
     </div>
   );
 }
