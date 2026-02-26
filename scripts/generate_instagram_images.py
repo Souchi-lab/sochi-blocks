@@ -582,8 +582,7 @@ Difficulty: {difficulty}
 
 Can you solve this in 3D?
 
-Try it here:
-{viewer_url}
+Play via the link in bio 👆
 
 #SoChiBLOCKS #pentomino #3dpuzzle #braintraining #thinkin3d #puzzlechallenge"""
 

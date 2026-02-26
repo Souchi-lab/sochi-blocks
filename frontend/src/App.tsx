@@ -4,7 +4,9 @@ import { PieceTray } from './components/PieceTray';
 import { PieceShapeMini } from './components/PieceShapeMini';
 import { PieceStage } from './components/PieceStage';
 import { VictoryOverlay } from './components/VictoryOverlay';
+import { TutorialOverlay } from './components/TutorialOverlay';
 import { useGameState } from './hooks/useGameState';
+import { useAutoPlayer } from './hooks/useAutoPlayer';
 import type { PuzzleData } from './types/puzzle';
 import { loadPieceColors, loadMasterPieces, getPieceColor, getPieceShape } from './constants/pieceColors';
 import { validAnchors, placementCells } from './utils/placement';
@@ -23,6 +25,7 @@ function getParams() {
     : [];
   const mode = params.get('mode');
   const capture = mode === 'capture';
+  const autoplay = params.get('autoplay') === '1';
   const angle = (params.get('angle') as CaptureAngle) ?? null;
 
   let puzzleFile: string;
@@ -34,18 +37,18 @@ function getParams() {
     puzzleFile = '';
   }
 
-  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle };
+  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle, autoplay };
 }
 
 // ── Missing pieces card (answer mode + capture mode) ──────────────
-function MissingCard({ pieces }: { pieces: string[] }) {
+function MissingCard({ pieces, title = "Missing Pieces", subtitle = "(not used in this solution)" }: { pieces: string[], title?: string, subtitle?: string }) {
   const n = pieces.length;
   const cellSize = n <= 2 ? 20 : n <= 4 ? 16 : 12;
 
   return (
     <div className="missing-card">
-      <div className="missing-title">Missing Pieces</div>
-      <div className="missing-subtitle">(not used in this solution)</div>
+      <div className="missing-title">{title}</div>
+      <div className="missing-subtitle">{subtitle}</div>
       <div className="missing-pieces">
         {pieces.map((p) => (
           <div key={p} className="piece-item">
@@ -64,28 +67,41 @@ function App() {
   const [colorsLoaded, setColorsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [flashErrorPiece, setFlashErrorPiece] = useState<string | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cellFlash, setCellFlash] = useState<{ type: 'error' } | null>(null);
 
-  const { id, puzzleFile, urlRemovedPieces, capture, angle } = useMemo(getParams, []);
+  const { id, puzzleFile, urlRemovedPieces, capture, angle, autoplay } = useMemo(getParams, []);
 
   const removedPieces = useMemo(() => {
     const fromJson = data?.removed_pieces ?? [];
     return fromJson.length > 0 ? fromJson : urlRemovedPieces;
   }, [data, urlRemovedPieces]);
 
+  // Stabilize the removedPieces array reference to prevent infinite loops in useGameState
+  const stableRemovedPieces = useMemo(() => removedPieces, [JSON.stringify(removedPieces)]);
+
   const { state: gameState, selectPiece, placePiece, unplacePiece, wrongClick, rotate, resetRotation, restart } =
-    useGameState(removedPieces);
+    useGameState(stableRemovedPieces);
 
   // Game mode: has removed pieces AND not in capture/answer view
-  const isGameMode = removedPieces.length > 0 && !capture && !showAnswer;
+  const isGameMode = stableRemovedPieces.length > 0 && !capture && !showAnswer;
 
-  const hasProblemMode = removedPieces.length > 0;
+  const hasProblemMode = stableRemovedPieces.length > 0;
+
+  // Check local storage for initial tutorial display
+  useEffect(() => {
+    if (autoplay) return;
+    const hasSeen = localStorage.getItem('sochi_tutorial_seen');
+    if (!hasSeen) {
+      setShowTutorial(true);
+    }
+  }, [autoplay]);
 
   useEffect(() => {
     if (!puzzleFile) {
-      setError('No puzzle specified. Use ?id=2026-002 or ?puzzle_id=5x4x3_0010');
+      setError('No puzzle specified. Use ?puzzle_id=20260224_001');
       return;
     }
     Promise.all([
@@ -185,14 +201,14 @@ function App() {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       switch (e.key) {
-        case 'ArrowLeft':  e.preventDefault(); rotate('Y', -1); break;
-        case 'ArrowRight': e.preventDefault(); rotate('Y',  1); break;
-        case 'ArrowUp':    e.preventDefault(); rotate('X', -1); break;
-        case 'ArrowDown':  e.preventDefault(); rotate('X',  1); break;
+        case 'ArrowLeft': case 'a': case 'A': e.preventDefault(); rotate('Y', -1); break;
+        case 'ArrowRight': case 'd': case 'D': e.preventDefault(); rotate('Y', 1); break;
+        case 'ArrowUp': case 'w': case 'W': e.preventDefault(); rotate('X', -1); break;
+        case 'ArrowDown': case 's': case 'S': e.preventDefault(); rotate('X', 1); break;
         case 'q': case 'Q': e.preventDefault(); rotate('Z', -1); break;
-        case 'e': case 'E': e.preventDefault(); rotate('Z',  1); break;
+        case 'e': case 'E': e.preventDefault(); rotate('Z', 1); break;
         case 'r': case 'R': e.preventDefault(); resetRotation(); break;
-        case 'Escape':      e.preventDefault(); selectPiece(gameState.selectedPiece); break;
+        case 'Escape': e.preventDefault(); selectPiece(gameState.selectedPiece); break;
       }
     };
     window.addEventListener('keydown', handler);
@@ -214,6 +230,19 @@ function App() {
     setCellFlash(null);
     unplacePiece(piece);
   }, [unplacePiece]);
+
+  const handleCloseTutorial = useCallback(() => {
+    setShowTutorial(false);
+  }, []);
+
+  useAutoPlayer({
+    autoplay,
+    data,
+    gameState,
+    selectPiece,
+    placePiece,
+    rotate
+  });
 
   if (error) return <div className="status">Error: {error}</div>;
   if (!data || !colorsLoaded) return <div className="status">Loading...</div>;
@@ -243,22 +272,33 @@ function App() {
       {/* ① Header */}
       <header className="app-header">
         <div className="header-left">
-          <a href="./index.html" className="back-btn">← Back</a>
+          {!autoplay && (
+            <a href="./index.html" className="back-btn">← Back</a>
+          )}
           <div className="brand-group">
             <span className="brand-text">SoChi BLOCKS</span>
             <span className="brand-tagline">think in 3D</span>
           </div>
         </div>
         <div className="header-right">
-          {isGameMode && gameState.mistakeCount > 0 && (
+          {!autoplay && isGameMode && gameState.mistakeCount > 0 && (
             <span className="mistake-badge">✕ {gameState.mistakeCount}</span>
           )}
-          {isGameMode && (
+          {!autoplay && isGameMode && (
+            <button
+              className="tutorial-trigger-btn"
+              onClick={() => setShowTutorial(true)}
+              title="Help"
+            >
+              Help
+            </button>
+          )}
+          {!autoplay && isGameMode && (
             <button className="reset-btn" onClick={handleRestart}>
               Reset
             </button>
           )}
-          {hasProblemMode && (
+          {!autoplay && hasProblemMode && (
             <button
               className="toggle-btn"
               onClick={() => setShowAnswer((prev) => !prev)}
@@ -291,6 +331,10 @@ function App() {
               onViewSolution={() => setShowAnswer(true)}
             />
           )}
+          <TutorialOverlay
+            isVisible={showTutorial}
+            onClose={handleCloseTutorial}
+          />
         </div>
 
         {removedPieces.length > 0 && (
@@ -313,9 +357,9 @@ function App() {
                 <div className="z-rotation-row">
                   <button className="rot-z-btn" onClick={() => rotate('Z', -1)} title="Z軸 反時計回り (Q)">↺</button>
                   <span className="z-hint">Z軸</span>
-                  <button className="rot-z-btn" onClick={() => rotate('Z',  1)} title="Z軸 時計回り (E)">↻</button>
+                  <button className="rot-z-btn" onClick={() => rotate('Z', 1)} title="Z軸 時計回り (E)">↻</button>
                 </div>
-                <div className="drag-hint">ドラッグで回転<span className="hint-kbd"> / ←↑→↓ · Q/E · R リセット</span> · 光ったら配置</div>
+                <div className="drag-hint">クリックで配置<span className="hint-kbd"> / ←↑→↓(WASD) · Q/E · R リセット</span></div>
               </div>
             )}
 
@@ -331,7 +375,11 @@ function App() {
                     onUnplace={handleUnplace}
                   />
                 ) : (
-                  <MissingCard pieces={removedPieces} />
+                  <MissingCard
+                    pieces={removedPieces}
+                    title="Solution Pieces"
+                    subtitle="(pieces used in this answer)"
+                  />
                 )}
               </div>
             </div>

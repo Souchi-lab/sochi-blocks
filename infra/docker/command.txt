@@ -1,0 +1,63 @@
+# 🔻 1. 環境初期化（ボリュームとマイグレーション履歴のリセット）
+# Remove-Item -Recurse -Force "C:/Users/PC_User/PRJ/SoChi BLOCKS/db/migrations/versions"
+# mkdir "C:/Users/PC_User/PRJ/SoChi BLOCKS/db/migrations/versions"
+docker compose down -v
+# 🔻 2. Dockerコンテナ起動（バックエンド含む）
+
+docker compose build --no-cache backend
+docker compose up -d --build backend
+
+# 🔻 3. 初期マイグレーション作成 & 適用
+# docker compose exec backend poetry run alembic revision --autogenerate -m initial_tables
+docker compose exec backend poetry run alembic upgrade head
+
+# 🔻 4. DBテーブル確認（動作確認）
+docker compose exec db psql -U postgres -d sochi_blocks -c "\d content_puzzle_cell;"
+docker compose exec db psql -U postgres -d sochi_blocks -c "SELECT COUNT(*) FROM content_puzzle;"
+
+# 🔻 5. ソルバー実行（6x10 解の生成）
+docker compose exec backend poetry run ruby /opt/solver/solver.rb --size 6x10 --json-out /opt/solver/solutions_6x10.json
+
+# 🔻 6. ソリューションデータのDBインポート（全サイズ対応）
+docker compose exec backend poetry run python backend/scripts/solution_data_import.py --json-dir /opt/solver --size all
+# 🔻 7. DBインポートログ取得
+docker compose exec backend poetry run python backend/scripts/solution_data_import.py --json-dir /opt/solver --size all > import_log.txt 2>&1
+
+# 🔻 8. 生成された解ファイルの中身確認・取得（ローカル保存）
+docker compose exec backend ls -l /opt/solver/solutions_6x10.json
+docker compose exec backend cat /opt/solver/solutions_6x10.json
+docker compose exec backend cat /opt/solver/solutions_6x10.json > solutions_6x10.json
+docker cp sochi_backend:/opt/solver/solutions_6x10.json "C:/Users/PC_User/PRJ/SoChi BLOCKS/solutions_6x10.json"
+docker compose exec backend poetry run ruby /opt/solver/solver.rb --size 6x10 --json-out /opt/solver/solutions_6x10.json > solver_output.log 2>&1
+docker compose exec db psql -U postgres -d sochi_blocks -c "SELECT * FROM alembic_version;"
+
+
+# 🔻 9. Alembic 現在の状態確認（デバッグ・追跡）
+docker compose exec backend poetry run alembic current
+docker compose exec db psql -U postgres -d sochi_blocks -c "\d content_puzzle_cell;"
+# 🔻 5. 不要カラム削除用のマイグレーション（例：value カラム）
+# docker compose exec backend poetry run alembic revision -m "remove_value_from_content_puzzle_cell"
+# docker compose exec backend poetry run alembic revision --autogenerate -m "initial_tables_and_remove_value_column"
+# docker compose exec backend poetry run alembic upgrade head
+
+
+# ✅ 補足：中間で使われていた以下のコマンドは重複のため省略
+# - `docker compose up -d`
+# - `docker compose up -d db`
+# - `docker compose build --no-cache backend`
+# - 二重の alembic upgrade や ruby 実行など
+
+
+docker compose exec backend head -n 1000 /opt/solver/solutions_6x10.json
+docker compose exec backend poetry run alembic -c /workspace/alembic.ini revision --autogenerate -m "Add piece_id to content_puzzle_cell"
+docker compose exec backend poetry run alembic -c /workspace/alembic.ini upgrade head
+
+docker compose exec db psql -U postgres -d sochi_blocks -c "TRUNCATE TABLE content_puzzle, content_puzzle_cell RESTART IDENTITY;"
+docker compose exec backend poetry run ruby tools/pentomino/solver.rb --size 5x4x3 --json-out /workspace/infra/docker/solutions_5x4x3.json
+docker compose exec backend poetry run python backend/scripts/solution_data_import.py --json-dir /workspace/infra/docker --size 5x4x3 > solver_output.log 2>&1
+
+docker compose exec db psql -U postgres -d sochi_blocks -c "SELECT p.id, c.value, c.x, c.y, c.z FROM master_base_puzzle AS p JOIN master_base_puzzle_cell AS c ON p.id = c.id WHERE p.id = '5x4x3_0000' ORDER BY c.value, c.z, c.y, c.x;" > puzzle_output.txt
+docker compose exec db psql -U postgres -d sochi_blocks -c "SELECT p.name AS puzzle_name, c.value AS piece_id, c.x, c.y, c.z FROM master_base_puzzle AS p JOIN master_base_puzzle_cell AS c ON p.id = c.base_puzzle_id WHERE p.name = '5x4x3_0000' ORDER BY c.value, c.z, c.y, c.x;" > puzzle_output.txt
+
+
+docker compose exec backend poetry run alembic -c /workspace/alembic.ini revision --autogenerate -m "Update master_base_puzzle_cell for piece_id"
