@@ -434,7 +434,6 @@ function App() {
                   isFitting={isFitting}
                   candidateIndices={fittingRotIndices}
                   onSelect={setRotation}
-                  onReset={resetRotation}
                 />
 
                 <div className="drag-hint">
