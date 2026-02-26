@@ -1,0 +1,98 @@
+.rotation-candidates {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 2px;
+}
+
+/* ── Nav row: [←] [canvas] [→] ────────────────────────────── */
+.rot-nav-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* ── Single canvas container ───────────────────────────────── */
+.rot-canvas-wrap {
+  width: 100px;
+  height: 100px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  background: #f0f0f0;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* Green glow when the current rotation has valid placements */
+.rot-canvas-wrap--fits {
+  border-color: #38a169 !important;
+  box-shadow: 0 0 0 3px rgba(56, 161, 105, 0.35);
+}
+
+/* ── Prev / Next arrow buttons ─────────────────────────────── */
+.rot-nav-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #444;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s, border-color 0.1s, transform 0.1s;
+  user-select: none;
+}
+
+.rot-nav-btn:hover {
+  background: #e8e8e8;
+  border-color: #999;
+}
+
+.rot-nav-btn:active {
+  background: #ddd;
+  transform: scale(0.93);
+}
+
+/* ── Count indicator ──────────────────────────────────────── */
+.rot-count-label {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.72rem;
+  color: #999;
+  letter-spacing: 0.05em;
+}
+
+/* ── Reset button ─────────────────────────────────────────── */
+.rot-reset-btn {
+  padding: 4px 18px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'Arial', sans-serif;
+  letter-spacing: 0.08em;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  flex-shrink: 0;
+}
+
+.rot-reset-btn:hover {
+  background: #e8e8e8;
+  border-color: #999;
+}
+
+.rot-reset-btn:active {
+  background: #ddd;
+}

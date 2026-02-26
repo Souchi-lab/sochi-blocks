@@ -126,3 +126,22 @@ export function placementCells(
   const dz = anchor[2] - ref[2];
   return rotated.map(([x, y, z]) => [x + dx, y + dy, z + dz] as Vec3);
 }
+
+/**
+ * Return the subset of rotation indices (0–23) that produce visually distinct
+ * shapes for the given piece cells. Duplicates (same normalized cell set) are
+ * omitted; the first index that produces each unique shape is kept.
+ */
+export function uniqueRotationIndices(pieceCells: Vec3[]): number[] {
+  const seen = new Set<string>();
+  const result: number[] = [];
+  for (let i = 0; i < 24; i++) {
+    const cells = normalize(applyRotation(pieceCells, i));
+    const key = cells.map(([x, y, z]) => `${x},${y},${z}`).sort().join('|');
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(i);
+    }
+  }
+  return result;
+}

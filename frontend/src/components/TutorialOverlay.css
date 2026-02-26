@@ -105,6 +105,19 @@ kbd {
     border-radius: 8px;
 }
 
+/* PC-only annotations inside tutorial steps */
+.hint-pc {
+    font-size: 0.80em;
+    color: #999;
+    display: inline;
+}
+
+@media (pointer: coarse) {
+    .hint-pc {
+        display: none;
+    }
+}
+
 .tutorial-close-btn {
     position: absolute;
     top: 12px;

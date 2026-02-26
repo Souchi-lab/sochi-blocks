@@ -293,28 +293,12 @@
   border-bottom: 1px solid #eee;
 }
 
-.stage-panel {
-  width: 130px;
-  height: 130px;
-  border-radius: 10px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: #f0f0f0;
-  transition: box-shadow 0.15s;
-  /* smooth add/remove of green glow */
-}
-
-/* Piece name label above the 3D stage */
+/* Piece name label above the rotation candidates */
 .stage-piece-label {
   font-family: 'Arial', sans-serif;
   font-size: 0.80rem;
   font-weight: 800;
   letter-spacing: 0.10em;
-}
-
-/* Green glow when selected piece's rotation fits its region */
-.stage-panel--fits {
-  box-shadow: 0 0 0 3px #38a169;
 }
 
 .drag-hint {
@@ -331,43 +315,93 @@
   }
 }
 
-/* Z-axis rotation buttons below stage panel */
-.z-rotation-row {
+/* ══ PLACEMENT OVERLAY — floats at bottom of 3D viewer ═══════ */
+
+.placement-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
   display: flex;
   align-items: center;
   gap: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 12px;
+  padding: 8px 14px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+  white-space: nowrap;
 }
 
-.rot-z-btn {
-  width: 32px;
-  height: 32px;
-  border: 1.5px solid #ccc;
-  border-radius: 7px;
-  background: #f5f5f5;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
+/* ══ CURSOR NAV — placement position cycle ════════════════════ */
+
+.cursor-nav-btn {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s, border-color 0.1s;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #444;
+  cursor: pointer;
   flex-shrink: 0;
+  transition: background 0.1s, border-color 0.1s, transform 0.1s;
+  user-select: none;
 }
 
-.rot-z-btn:hover {
+.cursor-nav-btn:hover {
   background: #e8e8e8;
   border-color: #999;
 }
 
-.rot-z-btn:active {
+.cursor-nav-btn:active {
   background: #ddd;
+  transform: scale(0.93);
 }
 
-.z-hint {
+.cursor-nav-count {
   font-family: 'Arial', sans-serif;
-  font-size: 0.65rem;
-  color: #aaa;
-  user-select: none;
+  font-size: 0.75rem;
+  color: #666;
+  min-width: 3.2em;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* ══ PLACE BUTTON ════════════════════════════════════════════ */
+
+.place-btn {
+  padding: 8px 20px;
+  font-size: 0.90rem;
+  font-weight: 700;
+  font-family: 'Arial', sans-serif;
+  letter-spacing: 0.04em;
+  border: none;
+  border-radius: 8px;
+  background: #333;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.place-btn:hover:not(:disabled) {
+  background: #555;
+}
+
+.place-btn:active:not(:disabled) {
+  background: #111;
+}
+
+.place-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* ══ PIECE TRAY (game mode) ══════════════════════════════════ */
@@ -593,14 +627,6 @@
     padding: 16px 16px 12px;
     gap: 8px;
     border-bottom: 1px solid #eee;
-  }
-
-  .stage-panel {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1;
-    /* square, fills sidebar width */
-    border-radius: 12px;
   }
 
   /* Tray fills remaining sidebar space */

@@ -11,6 +11,8 @@ export interface GameState {
   placedCells: Map<string, string>;
   selectedPiece: string | null;
   rotationIndex: number;
+  /** Index into sortedAnchors — which valid placement position is currently targeted */
+  cursorIndex: number;
   mistakeCount: number;
 }
 
@@ -21,6 +23,8 @@ export type GameAction =
   | { type: 'WRONG_CLICK' }
   | { type: 'ROTATE'; axis: 'X' | 'Y' | 'Z'; dir: 1 | -1 }
   | { type: 'RESET_ROTATION' }
+  | { type: 'SET_ROTATION'; index: number }
+  | { type: 'SET_CURSOR_INDEX'; index: number }
   | { type: 'RESTART'; removedPieces?: string[] };
 
 export function initialState(removedPieces: string[]): GameState {
@@ -31,6 +35,7 @@ export function initialState(removedPieces: string[]): GameState {
     placedCells: new Map(),
     selectedPiece: null,
     rotationIndex: 0,
+    cursorIndex: 0,
     mistakeCount: 0,
   };
 }
@@ -42,6 +47,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ...state,
         selectedPiece: state.selectedPiece === action.piece ? null : action.piece,
         rotationIndex: 0,
+        cursorIndex: 0,
       };
 
     case 'PLACE_PIECE': {
@@ -58,6 +64,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         placedCells: nextCells,
         selectedPiece: null,
         rotationIndex: 0,
+        cursorIndex: 0,
         phase: allPlaced ? 'victory' : 'playing',
       };
     }
@@ -77,6 +84,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         placedCells: nextCells,
         selectedPiece: action.piece,
         rotationIndex: 0,
+        cursorIndex: 0,
         phase: 'playing',
       };
     }
@@ -88,10 +96,17 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         rotationIndex: rotateIndex(state.rotationIndex, action.axis, action.dir),
+        cursorIndex: 0,
       };
 
     case 'RESET_ROTATION':
-      return { ...state, rotationIndex: 0 };
+      return { ...state, rotationIndex: 0, cursorIndex: 0 };
+
+    case 'SET_ROTATION':
+      return { ...state, rotationIndex: action.index, cursorIndex: 0 };
+
+    case 'SET_CURSOR_INDEX':
+      return { ...state, cursorIndex: action.index };
 
     case 'RESTART':
       return initialState(action.removedPieces ?? state.removedPieces);
@@ -112,13 +127,15 @@ export function useGameState(removedPieces: string[]) {
     }
   }, [removedPieces]);
 
-  const selectPiece   = (piece: string)                      => dispatch({ type: 'SELECT_PIECE', piece });
-  const placePiece    = (piece: string, coords: string[])    => dispatch({ type: 'PLACE_PIECE', piece, coords });
-  const unplacePiece  = (piece: string)                      => dispatch({ type: 'UNPLACE_PIECE', piece });
-  const wrongClick    = ()                                   => dispatch({ type: 'WRONG_CLICK' });
-  const rotate        = (axis: 'X' | 'Y' | 'Z', dir: 1|-1) => dispatch({ type: 'ROTATE', axis, dir });
-  const resetRotation = ()                                   => dispatch({ type: 'RESET_ROTATION' });
-  const restart       = ()                                   => dispatch({ type: 'RESTART' });
+  const selectPiece    = (piece: string)                      => dispatch({ type: 'SELECT_PIECE', piece });
+  const placePiece     = (piece: string, coords: string[])    => dispatch({ type: 'PLACE_PIECE', piece, coords });
+  const unplacePiece   = (piece: string)                      => dispatch({ type: 'UNPLACE_PIECE', piece });
+  const wrongClick     = ()                                   => dispatch({ type: 'WRONG_CLICK' });
+  const rotate         = (axis: 'X' | 'Y' | 'Z', dir: 1|-1) => dispatch({ type: 'ROTATE', axis, dir });
+  const resetRotation  = ()                                   => dispatch({ type: 'RESET_ROTATION' });
+  const setRotation    = (index: number)                      => dispatch({ type: 'SET_ROTATION', index });
+  const setCursorIndex = (index: number)                      => dispatch({ type: 'SET_CURSOR_INDEX', index });
+  const restart        = ()                                   => dispatch({ type: 'RESTART' });
 
-  return { state, selectPiece, placePiece, unplacePiece, wrongClick, rotate, resetRotation, restart };
+  return { state, selectPiece, placePiece, unplacePiece, wrongClick, rotate, resetRotation, setRotation, setCursorIndex, restart };
 }

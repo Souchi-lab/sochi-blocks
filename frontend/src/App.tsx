@@ -2,14 +2,14 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Viewer } from './components/Viewer';
 import { PieceTray } from './components/PieceTray';
 import { PieceShapeMini } from './components/PieceShapeMini';
-import { PieceStage } from './components/PieceStage';
+import { RotationCandidates } from './components/RotationCandidates';
 import { VictoryOverlay } from './components/VictoryOverlay';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { useGameState } from './hooks/useGameState';
 import { useAutoPlayer } from './hooks/useAutoPlayer';
 import type { PuzzleData } from './types/puzzle';
 import { loadPieceColors, loadMasterPieces, getPieceColor, getPieceShape } from './constants/pieceColors';
-import { validAnchors, placementCells } from './utils/placement';
+import { validAnchors, placementCells, uniqueRotationIndices } from './utils/placement';
 import type { Vec3 } from './utils/rotations';
 import './App.css';
 
@@ -82,7 +82,7 @@ function App() {
   // Stabilize the removedPieces array reference to prevent infinite loops in useGameState
   const stableRemovedPieces = useMemo(() => removedPieces, [JSON.stringify(removedPieces)]);
 
-  const { state: gameState, selectPiece, placePiece, unplacePiece, wrongClick, rotate, resetRotation, restart } =
+  const { state: gameState, selectPiece, placePiece, unplacePiece, wrongClick, rotate, resetRotation, setRotation, setCursorIndex, restart } =
     useGameState(stableRemovedPieces);
 
   // Game mode: has removed pieces AND not in capture/answer view
@@ -133,36 +133,85 @@ function App() {
       .map(c => [c.x, c.y, c.z] as Vec3);
   }, [data, isGameMode, removedPieces, gameState.placedCells]);
 
-  // ── Valid anchor cells + ghost cells (all cells occupied by any valid placement) ──
-  const { validAnchorCells, ghostCells } = useMemo((): {
-    validAnchorCells: Set<string> | undefined;
-    ghostCells: Set<string> | undefined;
-  } => {
-    if (!isGameMode || !gameState.selectedPiece)
-      return { validAnchorCells: undefined, ghostCells: undefined };
+  // ── Valid anchor cells for current rotation ──
+  const validAnchorCells = useMemo((): Set<string> | undefined => {
+    if (!isGameMode || !gameState.selectedPiece) return undefined;
     const pieceCells = getPieceShape(gameState.selectedPiece) as Vec3[];
-    if (pieceCells.length === 0)
-      return { validAnchorCells: undefined, ghostCells: undefined };
-
+    if (pieceCells.length === 0) return undefined;
     const anchors = validAnchors(pieceCells, gameState.rotationIndex, allEmptyCells);
-    const anchorSet = new Set(anchors.map(([x, y, z]) => `${x},${y},${z}`));
-
-    const ghostSet = new Set<string>();
-    for (const anchor of anchors) {
-      for (const [x, y, z] of placementCells(pieceCells, gameState.rotationIndex, anchor)) {
-        ghostSet.add(`${x},${y},${z}`);
-      }
-    }
-
-    return { validAnchorCells: anchorSet, ghostCells: ghostSet };
+    return anchors.length > 0
+      ? new Set(anchors.map(([x, y, z]) => `${x},${y},${z}`))
+      : undefined;
   }, [isGameMode, gameState.selectedPiece, gameState.rotationIndex, allEmptyCells]);
 
   // Stage panel glows green when any valid placement exists for the current rotation
   const isFitting = (validAnchorCells?.size ?? 0) > 0;
 
+  // Rotation candidates filtered to only placeable orientations
+  // Falls back to all unique rotations if none are placeable (shouldn't happen in normal play)
+  const fittingRotIndices = useMemo((): number[] | undefined => {
+    if (!isGameMode || !gameState.selectedPiece) return undefined;
+    const pieceCells = getPieceShape(gameState.selectedPiece) as Vec3[];
+    if (pieceCells.length === 0) return undefined;
+    const allIndices = uniqueRotationIndices(pieceCells);
+    const fitting = allIndices.filter(idx => validAnchors(pieceCells, idx, allEmptyCells).length > 0);
+    return fitting.length > 0 ? fitting : allIndices;
+  }, [isGameMode, gameState.selectedPiece, allEmptyCells]);
+
+  // ── Sorted anchor list for cursor navigation (z → y → x) ──
+  const sortedAnchors = useMemo((): string[] => {
+    if (!validAnchorCells) return [];
+    return [...validAnchorCells].sort((a, b) => {
+      const [ax, ay, az] = a.split(',').map(Number);
+      const [bx, by, bz] = b.split(',').map(Number);
+      if (az !== bz) return az - bz;
+      if (ay !== by) return ay - by;
+      return ax - bx;
+    });
+  }, [validAnchorCells]);
+
+  // Currently targeted anchor (cursor position)
+  const cursorAnchorKey: string | undefined = sortedAnchors[gameState.cursorIndex];
+
+  // ── Ghost cells: only the cursor anchor's placement (5 cells) ──
+  const cursorGhostCells = useMemo((): Set<string> | undefined => {
+    if (!isGameMode || !gameState.selectedPiece || !cursorAnchorKey) return undefined;
+    const pieceCells = getPieceShape(gameState.selectedPiece) as Vec3[];
+    const anchor = cursorAnchorKey.split(',').map(Number) as Vec3;
+    const ghostSet = new Set<string>();
+    for (const [x, y, z] of placementCells(pieceCells, gameState.rotationIndex, anchor)) {
+      ghostSet.add(`${x},${y},${z}`);
+    }
+    return ghostSet;
+  }, [isGameMode, gameState.selectedPiece, gameState.rotationIndex, cursorAnchorKey]);
+
+  // ── Place piece at the current cursor anchor ──
+  const handlePlaceAtCursor = useCallback(() => {
+    if (!gameState.selectedPiece || !cursorAnchorKey) return;
+    const coord = cursorAnchorKey.split(',').map(Number) as Vec3;
+    const pieceCells = getPieceShape(gameState.selectedPiece) as Vec3[];
+    const cells = placementCells(pieceCells, gameState.rotationIndex, coord);
+    const coords = cells.map(([x, y, z]) => `${x},${y},${z}`);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    setFlashErrorPiece(null);
+    setCellFlash(null);
+    placePiece(gameState.selectedPiece, coords);
+  }, [gameState.selectedPiece, gameState.rotationIndex, cursorAnchorKey, placePiece]);
+
   const handleEmptyCellClick = useCallback((coord: Vec3) => {
     if (!gameState.selectedPiece || !data) return;
 
+    const coordKey = `${coord[0]},${coord[1]},${coord[2]}`;
+
+    // Mobile (coarse pointer): tap on anchor → move cursor there
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+    if (isTouchDevice) {
+      const idx = sortedAnchors.indexOf(coordKey);
+      if (idx >= 0) setCursorIndex(idx);
+      return;
+    }
+
+    // PC: click → immediate placement
     const triggerError = () => {
       wrongClick();
       setFlashErrorPiece(gameState.selectedPiece!);
@@ -174,24 +223,19 @@ function App() {
       }, 500);
     };
 
-    const coordKey = `${coord[0]},${coord[1]},${coord[2]}`;
     if (!validAnchorCells?.has(coordKey)) {
-      // Clicked a non-anchor empty cell — shouldn't happen since only anchors have onClick,
-      // but guard anyway
       triggerError();
       return;
     }
 
-    // Valid anchor clicked — compute the 5 cells and place
     const pieceCells = getPieceShape(gameState.selectedPiece) as Vec3[];
     const cells = placementCells(pieceCells, gameState.rotationIndex, coord);
     const coords = cells.map(([x, y, z]) => `${x},${y},${z}`);
-
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     setFlashErrorPiece(null);
     setCellFlash(null);
     placePiece(gameState.selectedPiece, coords);
-  }, [gameState.selectedPiece, gameState.rotationIndex, validAnchorCells, data, placePiece, wrongClick]);
+  }, [gameState.selectedPiece, gameState.rotationIndex, validAnchorCells, sortedAnchors, data, placePiece, wrongClick, setCursorIndex]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -209,11 +253,12 @@ function App() {
         case 'e': case 'E': e.preventDefault(); rotate('Z', 1); break;
         case 'r': case 'R': e.preventDefault(); resetRotation(); break;
         case 'Escape': e.preventDefault(); selectPiece(gameState.selectedPiece); break;
+        case 'Enter': case ' ': e.preventDefault(); handlePlaceAtCursor(); break;
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isGameMode, gameState.phase, gameState.selectedPiece, rotate, resetRotation, selectPiece]);
+  }, [isGameMode, gameState.phase, gameState.selectedPiece, rotate, resetRotation, selectPiece, handlePlaceAtCursor]);
 
   // handleRestart: clear any pending flash before resetting game state
   const handleRestart = useCallback(() => {
@@ -232,6 +277,7 @@ function App() {
   }, [unplacePiece]);
 
   const handleCloseTutorial = useCallback(() => {
+    localStorage.setItem('sochi_tutorial_seen', '1');
     setShowTutorial(false);
   }, []);
 
@@ -320,10 +366,43 @@ function App() {
             placedCells={isGameMode ? gameState.placedCells : undefined}
             selectedPiece={isGameMode ? gameState.selectedPiece : undefined}
             validAnchorCells={isGameMode ? validAnchorCells : undefined}
-            ghostCells={isGameMode ? ghostCells : undefined}
+            ghostCells={isGameMode ? cursorGhostCells : undefined}
             onEmptyCellClick={isGameMode ? handleEmptyCellClick : undefined}
             cellFlash={isGameMode ? cellFlash : null}
           />
+          {/* Placement overlay — cursor nav + Set button */}
+          {isGameMode && gameState.selectedPiece && (
+            <div className="placement-overlay">
+              {sortedAnchors.length > 0 && (
+                <>
+                  <button
+                    className="cursor-nav-btn"
+                    onClick={() => setCursorIndex((gameState.cursorIndex - 1 + sortedAnchors.length) % sortedAnchors.length)}
+                    aria-label="前の配置位置"
+                  >
+                    ←
+                  </button>
+                  <span className="cursor-nav-count">
+                    {gameState.cursorIndex + 1} / {sortedAnchors.length}
+                  </span>
+                  <button
+                    className="cursor-nav-btn"
+                    onClick={() => setCursorIndex((gameState.cursorIndex + 1) % sortedAnchors.length)}
+                    aria-label="次の配置位置"
+                  >
+                    →
+                  </button>
+                </>
+              )}
+              <button
+                className="place-btn"
+                disabled={sortedAnchors.length === 0}
+                onClick={handlePlaceAtCursor}
+              >
+                Set
+              </button>
+            </div>
+          )}
           {isGameMode && gameState.phase === 'victory' && (
             <VictoryOverlay
               mistakeCount={gameState.mistakeCount}
@@ -347,19 +426,20 @@ function App() {
                 >
                   Piece {gameState.selectedPiece}
                 </div>
-                <div className={`stage-panel${isFitting ? ' stage-panel--fits' : ''}`}>
-                  <PieceStage
-                    piece={gameState.selectedPiece}
-                    rotationIndex={gameState.rotationIndex}
-                    onRotate={rotate}
-                  />
+
+                {/* Rotation selection */}
+                <RotationCandidates
+                  piece={gameState.selectedPiece}
+                  currentRotIndex={gameState.rotationIndex}
+                  isFitting={isFitting}
+                  candidateIndices={fittingRotIndices}
+                  onSelect={setRotation}
+                  onReset={resetRotation}
+                />
+
+                <div className="drag-hint">
+                  <span className="hint-kbd">WASD · Q/E · R · Enter</span>
                 </div>
-                <div className="z-rotation-row">
-                  <button className="rot-z-btn" onClick={() => rotate('Z', -1)} title="Z軸 反時計回り (Q)">↺</button>
-                  <span className="z-hint">Z軸</span>
-                  <button className="rot-z-btn" onClick={() => rotate('Z', 1)} title="Z軸 時計回り (E)">↻</button>
-                </div>
-                <div className="drag-hint">クリックで配置<span className="hint-kbd"> / ←↑→↓(WASD) · Q/E · R リセット</span></div>
               </div>
             )}
 
