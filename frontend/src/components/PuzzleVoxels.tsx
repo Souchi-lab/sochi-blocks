@@ -82,17 +82,23 @@ export const PuzzleVoxels = ({
         const isEmpty   = isRemoved && filledBy === undefined;
 
         if (!isEmpty) {
-          // Solid cell — original or placed by player.
-          // Show the placing piece's color if available; otherwise the cell's original piece color.
-          const solidColor = filledBy ? getPieceColor(filledBy) : getPieceColor(cell.piece);
+          // Solid cell — original puzzle block or player-placed block.
+          const isPlacedByPlayer = filledBy !== undefined;
+          const solidColor = isPlacedByPlayer ? getPieceColor(filledBy) : getPieceColor(cell.piece);
+          const hasSelected = selectedPiece != null;
+
+          // Dim only the original puzzle background when a piece is being placed.
+          // Player-placed blocks stay fully opaque (confirmed placement).
+          const dimBackground = hasSelected && !isPlacedByPlayer;
+
           return (
             <mesh key={i} position={pos}>
               <boxGeometry args={[BOX_SIZE, BOX_SIZE, BOX_SIZE]} />
               <meshStandardMaterial
-                color={solidColor}
-                transparent={false}
-                opacity={1}
-                depthWrite={true}
+                color={dimBackground ? '#a8a8a8' : solidColor}
+                transparent={true}
+                opacity={dimBackground ? 0.8 : 1}
+                depthWrite={!dimBackground}
                 roughness={0.6}
                 metalness={0.05}
               />
@@ -106,15 +112,15 @@ export const PuzzleVoxels = ({
         const isFlashing   = cellFlash?.type === 'error' && isAnchor;
         const hasSelection = selectedPiece != null;
 
-        // Visual hierarchy:
-        //   flashing anchor        → red  (error feedback)
-        //   anchor                 → piece color, bright  (clickable placement target)
-        //   ghost (non-anchor)     → piece color, dim     (piece shape at valid placement)
-        //   non-ghost + selection  → very dim gray
-        //   no piece selected      → neutral gray
-        const opacity = isFlashing   ? 0.70
-                      : isAnchor     ? 0.60
-                      : isGhost      ? 0.28
+        // Visual hierarchy (Phase 3 cursor mode):
+        //   flashing anchor        → red   (error feedback)
+        //   ghost (cursor cells)   → 1.0   (solid preview of piece at cursor position)
+        //   anchor (non-cursor)    → 0.35  (dim indicator: other valid anchor positions)
+        //   non-ghost + selection  → 0.05  (very dim: empty holes not targeted)
+        //   no piece selected      → 0.15  (neutral gray holes)
+        const opacity = isFlashing   ? 0.85
+                      : isGhost      ? 1.0
+                      : isAnchor     ? 0.35
                       : hasSelection ? 0.05
                       :                0.15;
 
