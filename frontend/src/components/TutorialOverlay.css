@@ -1,0 +1,132 @@
+.tutorial-overlay {
+    position: fixed;
+    /* Changed from absolute to fixed to cover the entire screen */
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    /* Increased to ensure it sits above the header */
+    animation: fade-in 0.3s ease;
+    padding: 20px;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.tutorial-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 440px;
+    /* Slightly wider to accommodate video */
+    width: 100%;
+    max-height: 90vh;
+    /* Prevent overflow on small screens */
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    /* Make relative so the close button can be anchored to it */
+}
+
+.tutorial-title {
+    font-family: 'Arial', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1e1e1e;
+    text-align: center;
+    margin: 0;
+}
+
+.tutorial-video-container {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: #f5f5f5;
+    /* Placeholder background */
+}
+
+.tutorial-video {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.tutorial-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tutorial-list li {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    color: #333;
+}
+
+.tutorial-list strong {
+    color: #2b6cb0;
+}
+
+kbd {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: monospace;
+    font-size: 0.85em;
+    color: #555;
+}
+
+.tutorial-hint {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.85rem;
+    color: #666;
+    text-align: center;
+    margin-top: 15px;
+    background: #f8f9fa;
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.tutorial-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: #888;
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+.tutorial-close-btn:hover {
+    color: #333;
+    background: #f0f0f0;
+}

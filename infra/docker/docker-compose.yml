@@ -1,0 +1,58 @@
+######################################################################
+# SoChi BLOCKS ── Local Dev Compose
+#   - PostgreSQL 16  (サービス名: db)
+#   - Python backend (Poetry, Alembic 実行込み)  (サービス名: backend)
+#   - React frontend (Vite, Nginx) (サービス名: frontend)
+# 将来フロントエンドやテストランナーを追加する場合は services: に追記する。
+######################################################################
+
+services:
+  # ───────────────────────────────────────────────────────── db
+  db:
+    image: postgres:16
+    container_name: sochi_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sochi_blocks
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"     # ホスト公開（ローカルPG 5432と競合回避）
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sochi_blocks"]
+      interval: 3s
+      retries: 10
+
+  # ──────────────────────────────────────────────── Python backend
+  backend:
+    container_name: sochi_backend
+    build:
+      context: ../../        # ← ルートを build コンテキストに
+      dockerfile: infra/docker/Dockerfile.backend
+    env_file: ../../.env          # DATABASE_URL などを注入
+    depends_on:
+      db:
+        condition: service_healthy
+    command: poetry run flask --app backend.app run --host=0.0.0.0 --port=5000
+    volumes:
+      - ../../:/workspace     # 編集内容を即時反映したい場合
+
+  # ──────────────────────────────────────────────── React frontend (Dev)
+  frontend:
+    container_name: sochi_frontend
+    build:
+      context: ../../            # Project root context
+      dockerfile: infra/docker/Dockerfile.frontend.dev
+    ports:
+      - "8080:5173"             # Map host 8080 to Vite's 5173
+    volumes:
+      - ../../frontend:/app       # Mount local source code
+      - /app/node_modules         # Do not overwrite node_modules from host
+    depends_on:
+      - backend
+
+# ──────────────────────────────────────────── Named volumes
+volumes:
+  pgdata:
+    driver: local
