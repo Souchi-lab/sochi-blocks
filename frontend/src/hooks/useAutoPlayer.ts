@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { PuzzleData } from '../types/puzzle';
 import type { GameState } from './useGameState';
 import { getPieceShape } from '../constants/pieceColors';
-import { validAnchors, placementCells } from '../utils/placement';
+import { validAnchors, placementCells, uniqueRotationIndices } from '../utils/placement';
 import { rotateIndex } from '../utils/rotations';
 import type { Vec3 } from '../utils/rotations';
 
@@ -16,6 +16,8 @@ export function useAutoPlayer({
     selectPiece,
     placePiece,
     rotate,
+    setRotation,
+    setCursorIndex,
 }: {
     autoplay: boolean;
     data: PuzzleData | null;
@@ -23,6 +25,8 @@ export function useAutoPlayer({
     selectPiece: (p: string) => void;
     placePiece: (p: string, coords: string[]) => void;
     rotate: (axis: 'X' | 'Y' | 'Z', dir: 1 | -1) => void;
+    setRotation?: (index: number) => void;
+    setCursorIndex?: (index: number) => void;
 }) {
     const isPlaying = useRef(false);
 
@@ -42,12 +46,10 @@ export function useAutoPlayer({
             const removedSet = new Set(gameState.removedPieces);
             const remaining = [...gameState.removedPieces];
 
-            // Target ~30 seconds total duration. 
+            // Target ~30 seconds total duration.
             // Calculate base multiplier to scale all delays.
-            // If 2 pieces take ~30s, that's 1.0 multiplier.
-            // If 6 pieces, we need to move 3x faster (0.33 multiplier).
             const targetTotalMs = 30000;
-            const estimatedMsPerPieceWithFullDelay = 15000; // rough average from previous fixed delays
+            const estimatedMsPerPieceWithFullDelay = 15000;
             const pacingMultiplier = Math.max(0.2, Math.min(1.5, targetTotalMs / (remaining.length * estimatedMsPerPieceWithFullDelay)));
 
             console.log(`[AutoPlayer] Starting scenario with ${remaining.length} pieces. Pacing Multiplier: ${pacingMultiplier.toFixed(2)}`);
@@ -68,33 +70,44 @@ export function useAutoPlayer({
                     data.cells.filter(c => c.piece === pieceToPlay).map(c => `${c.x},${c.y},${c.z}`)
                 );
 
-                // ------- Step 2: Simulate thinking (random rotations) -------
+                // ------- Step 2: Simulate thinking (cycle rotation cards) -------
                 const thinkCount = Math.floor(Math.random() * 3) + 5; // 5 to 7 rotations
 
                 // We track rotation locally — do NOT rely on gameState.rotationIndex
                 let localRotIndex = 0;
 
-                for (let i = 0; i < thinkCount; i++) {
-                    const axis = axes[Math.floor(Math.random() * axes.length)];
-                    const dir = Math.random() > 0.5 ? 1 : -1;
-                    rotate(axis, dir); // purely for the visual
-                    localRotIndex = rotateIndex(localRotIndex, axis, dir); // track locally
-                    await sleep((1000 + Math.random() * 1000) * pacingMultiplier);
+                if (setRotation) {
+                    // New UI: simulate clicking rotation cards
+                    const uniqueRots = uniqueRotationIndices(pieceShape);
+                    for (let i = 0; i < thinkCount; i++) {
+                        const idx = uniqueRots[Math.floor(Math.random() * uniqueRots.length)];
+                        setRotation(idx);
+                        localRotIndex = idx;
+                        await sleep((800 + Math.random() * 700) * pacingMultiplier);
+                    }
+                } else {
+                    // Fallback: old rotate() method
+                    for (let i = 0; i < thinkCount; i++) {
+                        const axis = axes[Math.floor(Math.random() * axes.length)];
+                        const dir = Math.random() > 0.5 ? 1 : -1;
+                        rotate(axis, dir);
+                        localRotIndex = rotateIndex(localRotIndex, axis, dir);
+                        await sleep((1000 + Math.random() * 1000) * pacingMultiplier);
+                    }
                 }
 
                 await sleep(1000 * pacingMultiplier);
 
                 // ------- Step 3: Find a valid rotation & place -------
-                // Current empty cells (re-computed freshly using the live ref)
                 const allEmptyCells = data.cells
                     .filter(c => removedSet.has(c.piece) && !placedCellsRef.current.has(`${c.x},${c.y},${c.z}`))
                     .map(c => [c.x, c.y, c.z] as Vec3);
 
                 console.log(`[AutoPlayer] Placing: ${pieceToPlay}, empty cells: ${allEmptyCells.length}`);
 
-                // Try strictly all 24 rotations to find the one matching data.cells
                 let targetRotIndex = -1;
                 let targetCoordsToPlace: string[] | null = null;
+                let targetAnchor: Vec3 | null = null;
 
                 for (let rot = 0; rot < 24; rot++) {
                     const anchors = validAnchors(pieceShape, rot, allEmptyCells);
@@ -105,6 +118,7 @@ export function useAutoPlayer({
 
                         if (isPerfectFit) {
                             targetRotIndex = rot;
+                            targetAnchor = anc;
                             targetCoordsToPlace = coords;
                             break;
                         }
@@ -112,15 +126,47 @@ export function useAutoPlayer({
                     if (targetCoordsToPlace) break;
                 }
 
-                if (targetCoordsToPlace !== null) {
-                    // Find shortest path to target rotation for visual effect
-                    const path = getRotationPath(localRotIndex, targetRotIndex);
-                    for (const step of path) {
-                        rotate(step.axis, step.dir);
-                        await sleep(300 * pacingMultiplier);
+                if (targetCoordsToPlace !== null && targetAnchor !== null) {
+                    // Apply final rotation
+                    if (setRotation) {
+                        // New UI: directly select the correct rotation card
+                        setRotation(targetRotIndex);
+                    } else {
+                        // Fallback: animate path to target rotation
+                        const path = getRotationPath(localRotIndex, targetRotIndex);
+                        for (const step of path) {
+                            rotate(step.axis, step.dir);
+                            await sleep(300 * pacingMultiplier);
+                        }
                     }
                     console.log(`[AutoPlayer] Found exact solution anchor at rotation ${targetRotIndex}`);
                     await sleep(800 * pacingMultiplier);
+
+                    // Demonstrate cursor cycling through placement positions
+                    if (setCursorIndex) {
+                        // Compute sorted anchors for this rotation (mirrors App.tsx logic)
+                        const allAnchorsForRot = validAnchors(pieceShape, targetRotIndex, allEmptyCells);
+                        const anchorKeys = [...new Set(allAnchorsForRot.map(([x, y, z]) => `${x},${y},${z}`))];
+                        const sortedKeys = anchorKeys.sort((a, b) => {
+                            const [ax, ay, az] = a.split(',').map(Number);
+                            const [bx, by, bz] = b.split(',').map(Number);
+                            return az !== bz ? az - bz : ay !== by ? ay - by : ax - bx;
+                        });
+                        const targetAnchorKey = `${targetAnchor[0]},${targetAnchor[1]},${targetAnchor[2]}`;
+                        const targetIdx = sortedKeys.indexOf(targetAnchorKey);
+
+                        // Cycle through up to 2 other positions before landing on target
+                        if (sortedKeys.length > 1) {
+                            const cyclesToShow = Math.min(2, sortedKeys.length - 1);
+                            for (let i = 0; i < cyclesToShow; i++) {
+                                setCursorIndex((i + 1) % sortedKeys.length);
+                                await sleep(400 * pacingMultiplier);
+                            }
+                        }
+                        if (targetIdx >= 0) setCursorIndex(targetIdx);
+                        await sleep(500 * pacingMultiplier);
+                    }
+
                     placePiece(pieceToPlay, targetCoordsToPlace);
                 } else {
                     console.error(`[AutoPlayer] Could not find valid placement for: ${pieceToPlay}`);
@@ -141,7 +187,6 @@ export function useAutoPlayer({
 function getRotationPath(start: number, end: number): { axis: 'X' | 'Y' | 'Z', dir: 1 | -1 }[] {
     if (start === end) return [];
 
-    // BFS queue: [current_rot, sequence_of_moves]
     const q: { curr: number, path: { axis: 'X' | 'Y' | 'Z', dir: 1 | -1 }[] }[] = [{ curr: start, path: [] }];
     const seen = new Set([start]);
 
