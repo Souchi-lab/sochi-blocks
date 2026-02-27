@@ -18,6 +18,7 @@ export function useAutoPlayer({
     rotate,
     setRotation,
     setCursorIndex,
+    initialDelayMs = 0,
 }: {
     autoplay: boolean;
     data: PuzzleData | null;
@@ -27,6 +28,8 @@ export function useAutoPlayer({
     rotate: (axis: 'X' | 'Y' | 'Z', dir: 1 | -1) => void;
     setRotation?: (index: number) => void;
     setCursorIndex?: (index: number) => void;
+    /** Optional pause (ms) before gameplay starts — allows external camera orbit demos */
+    initialDelayMs?: number;
 }) {
     const isPlaying = useRef(false);
 
@@ -43,6 +46,9 @@ export function useAutoPlayer({
         isPlaying.current = true;
 
         const playScenario = async () => {
+            // Allow external camera orbit demo before gameplay starts
+            if (initialDelayMs > 0) await sleep(initialDelayMs);
+
             const removedSet = new Set(gameState.removedPieces);
             const remaining = [...gameState.removedPieces];
 

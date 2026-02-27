@@ -27,6 +27,7 @@ function getParams() {
   const capture = mode === 'capture';
   const autoplay = params.get('autoplay') === '1';
   const angle = (params.get('angle') as CaptureAngle) ?? null;
+  const initialDelayMs = autoplay ? (parseInt(params.get('delay') ?? '0', 10) || 0) : 0;
 
   let puzzleFile: string;
   if (id) {
@@ -37,7 +38,7 @@ function getParams() {
     puzzleFile = '';
   }
 
-  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle, autoplay };
+  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs };
 }
 
 // ── Missing pieces card (answer mode + capture mode) ──────────────
@@ -72,7 +73,7 @@ function App() {
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cellFlash, setCellFlash] = useState<{ type: 'error' } | null>(null);
 
-  const { id, puzzleFile, urlRemovedPieces, capture, angle, autoplay } = useMemo(getParams, []);
+  const { id, puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs } = useMemo(getParams, []);
 
   const removedPieces = useMemo(() => {
     const fromJson = data?.removed_pieces ?? [];
@@ -290,6 +291,7 @@ function App() {
     rotate,
     setRotation,
     setCursorIndex,
+    initialDelayMs,
   });
 
   if (error) return <div className="status">Error: {error}</div>;
