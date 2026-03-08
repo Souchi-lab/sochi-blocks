@@ -72,6 +72,8 @@ function App() {
   const [flashErrorPiece, setFlashErrorPiece] = useState<string | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cellFlash, setCellFlash] = useState<{ type: 'error' } | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const [clearTimeMs, setClearTimeMs] = useState(0);
 
   const { id, puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs } = useMemo(getParams, []);
 
@@ -99,6 +101,17 @@ function App() {
       setShowTutorial(true);
     }
   }, [autoplay]);
+
+  // クリアタイム計測
+  useEffect(() => {
+    if (autoplay) return;
+    if (gameState.phase === 'playing' && startTimeRef.current === null) {
+      startTimeRef.current = Date.now();
+    } else if (gameState.phase === 'victory' && startTimeRef.current !== null) {
+      setClearTimeMs(Date.now() - startTimeRef.current);
+      startTimeRef.current = null;
+    }
+  }, [gameState.phase, autoplay]);
 
   useEffect(() => {
     if (!puzzleFile) {
@@ -266,6 +279,8 @@ function App() {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     setFlashErrorPiece(null);
     setCellFlash(null);
+    startTimeRef.current = null;
+    setClearTimeMs(0);
     restart();
   }, [restart]);
 
@@ -373,6 +388,7 @@ function App() {
             ghostCells={isGameMode ? cursorGhostCells : undefined}
             onEmptyCellClick={isGameMode ? handleEmptyCellClick : undefined}
             cellFlash={isGameMode ? cellFlash : null}
+            phase={isGameMode ? gameState.phase : undefined}
           />
           {/* Placement overlay — cursor nav + Set button */}
           {isGameMode && gameState.selectedPiece && (
@@ -410,6 +426,9 @@ function App() {
           {isGameMode && gameState.phase === 'victory' && (
             <VictoryOverlay
               mistakeCount={gameState.mistakeCount}
+              puzzleId={id}
+              removedPieces={stableRemovedPieces}
+              clearTimeMs={clearTimeMs}
               onRestart={handleRestart}
               onViewSolution={() => setShowAnswer(true)}
             />

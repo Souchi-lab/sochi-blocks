@@ -21,10 +21,14 @@ import argparse
 import json
 import os
 import random
+import subprocess as _sp
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+import time
+import urllib.request
+import urllib.error
 
 from sqlalchemy import create_engine, text
 
@@ -221,7 +225,7 @@ def export_puzzle_json(engine, puzzle_name: str, pub_id: str) -> Path:
 def save_to_db(engine, puzzle_name: str, difficulty: str, removed: list[str], code: str):
     """Save published puzzle to content_puzzle."""
     diff_cfg = DIFFICULTY_MAP[difficulty]
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     q_bp = text("SELECT id FROM master_base_puzzle WHERE name = :name")
     with engine.connect() as conn:
@@ -262,11 +266,11 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
     print(f"{'='*60}")
 
     # 1) Select dissimilar puzzle
-    print("[1/5] Selecting puzzle...")
+    print("[1/6] Selecting puzzle...")
     puzzle_name = select_puzzle(engine)
 
     # 2) Determine pub_id = YYYYMMDD_### (date-based unique ID)
-    today = datetime.utcnow()
+    today = datetime.now(timezone.utc)
     date_str = today.strftime("%Y%m%d")
     if seq_number is None:
         q_today = text("""
@@ -278,7 +282,7 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
     pub_id = f"{date_str}_{seq_number:03d}"
 
     # 3) Export JSON from DB using pub_id as filename
-    print("[2/5] Exporting puzzle JSON...")
+    print("[2/6] Exporting puzzle JSON...")
     src_json = export_puzzle_json(engine, puzzle_name, pub_id)
     print(f"  [OK] {src_json}")
 
@@ -311,10 +315,10 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
     colors = load_piece_colors()
     piece_shapes = load_master_pieces()
 
-    print("[3/5] Generating layer image...")
+    print("[3/6] Generating layer image...")
     generate_layer_image(src_json, colors, set(removed), img_dir / "layer.png", piece_shapes)
 
-    print("[4/5] Generating 3D captures...")
+    print("[4/6] Generating 3D captures...")
     capture_3d_images(pub_id, removed_str, img_dir)
 
     # Rename 3D files (capture_3d_images now outputs 02_3d_x.png / 03_3d_y.png)
@@ -327,25 +331,77 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
         if old_path.exists():
             old_path.replace(new_path)
 
+    # 7.5) Generate SNS video
+    print("[5/6] Generating SNS video...")
+    try:
+        _sp.run(["npm", "run", "generate-sns", pub_id],
+                cwd=str(PROJECT_ROOT / "frontend"), check=True, shell=True)
+        video_src_dir = PROJECT_ROOT / "frontend" / "public" / "sns_videos"
+        for ext in ["mp4", "gif"]:
+            src = video_src_dir / f"{pub_id}.{ext}"
+            if src.exists():
+                dst = img_dir / f"{pub_id}.{ext}"
+                src.replace(dst)
+                print(f"  [OK] Produced {ext} -> {dst}")
+    except Exception as e:
+        print(f"  [WARN] SNS video generation failed: {e}")
+
     # 7) Save to DB
-    print("[5/5] Saving to database...")
+    print("[6/6] Saving to database...")
     save_to_db(engine, puzzle_name, difficulty, removed, pub_id)
 
-    # 8) caption.txt / url.txt alongside images
-    viewer_url = f"{PAGES_BASE_URL}/viewer.html?puzzle_id={pub_id}"
+    # 8) caption.txt alongside images
     write_caption(img_dir, pub_id, diff_cfg["label"])
     print(f"  [OK] caption.txt -> {img_dir / 'caption.txt'}")
 
-    print(f"\n  [OK] Published: {pub_id}")
-    print(f"  [LINK] {viewer_url}")
-    print(f"  Images: {img_dir}")
+    print(f"  Images/Video: {img_dir}")
+
+    # 9) Generate shareable HTML for social media (OG tags)
+    share_html_dir = DOCS_DIR / "share"
+    share_html_dir.mkdir(parents=True, exist_ok=True)
+    share_html_path = share_html_dir / f"{pub_id}.html"
+    
+    # Image for OG tag (layer.png)
+    image_url = f"{PAGES_BASE_URL}/images/{date_str}/{seq_number:03d}/layer.png"
+    final_viewer_url = f"{PAGES_BASE_URL}/viewer.html?puzzle_id={pub_id}"
+    
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SoChi BLOCKS Puzzle {pub_id}</title>
+    <meta property="og:title" content="SoChi BLOCKS Puzzle {pub_id} ({diff_cfg['label']})">
+    <meta property="og:description" content="Can you solve this puzzle? Tap to view in 3D!">
+    <meta property="og:image" content="{image_url}">
+    <meta property="og:url" content="{PAGES_BASE_URL}/share/{pub_id}.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="SoChi BLOCKS Puzzle {pub_id}">
+    <meta name="twitter:description" content="Can you solve this? #SoChiBLOCKS">
+    <meta name="twitter:image" content="{image_url}">
+    
+    <!-- Redirect to actual viewer -->
+    <meta http-equiv="refresh" content="0; url={final_viewer_url}">
+    <script>window.location.href = "{final_viewer_url}";</script>
+</head>
+<body>
+    <p>Redirecting to puzzle viewer... <a href="{final_viewer_url}">Click here</a> if not redirected.</p>
+</body>
+</html>
+"""
+    with open(share_html_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    print(f"  [OK] share html -> {share_html_path}")
+
+    share_url = f"{PAGES_BASE_URL}/share/{pub_id}.html"
 
     return {
         "code": pub_id,
         "puzzle_name": puzzle_name,
         "difficulty": difficulty,
         "removed": removed,
-        "url": viewer_url,
+        "url": final_viewer_url,
+        "share_url": share_url,
         "img_dir": str(img_dir),
     }
 
@@ -354,25 +410,95 @@ def main():
     parser = argparse.ArgumentParser(description="Auto-publish puzzles")
     parser.add_argument("--difficulty", choices=["easy", "medium", "hard"], help="Single difficulty")
     parser.add_argument("--all", action="store_true", help="Publish easy + medium + hard")
+    parser.add_argument("--dir", help="Manual directory for posting (skips generation)")
+    parser.add_argument("--twitter", action="store_true", help="Post results to Twitter (X)")
+    parser.add_argument("--instagram", action="store_true", help="Post results to Instagram")
     args = parser.parse_args()
 
-    if not args.difficulty and not args.all:
-        parser.error("Specify --difficulty or --all")
+    if not args.difficulty and not args.all and not args.dir:
+        parser.error("Specify --difficulty, --all, or --dir")
 
     engine = get_engine()
     results = []
 
     if args.all:
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         q_today = text("SELECT count(*) as cnt FROM content_puzzle WHERE DATE(published_at) = :today")
         with engine.connect() as conn:
             today_base = conn.execute(q_today, {"today": today}).fetchone().cnt
         for i, diff in enumerate(["easy", "medium", "hard"], start=1):
             r = publish_one(engine, diff, seq_number=today_base + i)
             results.append(r)
+    elif args.dir:
+        # Manual mode
+        d = Path(args.dir)
+        if not d.exists():
+            print(f"Error: {d} does not exist.")
+            sys.exit(1)
+        # Try to extract code from path (e.g. docs/images/20260307/001 -> 20260307_001)
+        # Or just use the last two parts
+        try:
+            code = f"{d.parent.name}_{d.name}"
+        except:
+            code = d.name
+            
+        results.append({
+            "code": code,
+            "puzzle_name": "Manual",
+            "difficulty": "Unknown",
+            "removed": [],
+            "url": f"{PAGES_BASE_URL}/viewer.html?puzzle_id={code}",
+            "img_dir": str(d),
+        })
     else:
         r = publish_one(engine, args.difficulty)
         results.append(r)
+
+    # Manual mode enrichment: Generate share HTML if it doesn't exist
+    if args.dir:
+        for r in results:
+            share_html_dir = DOCS_DIR / "share"
+            share_html_dir.mkdir(parents=True, exist_ok=True)
+            share_html_path = share_html_dir / f"{r['code']}.html"
+            
+            # Use layer.png from the specified directory
+            d = Path(r["img_dir"])
+            try:
+                # Try to get relative path from 'docs'
+                parts = d.resolve().parts
+                idx = parts.index("docs")
+                rel_url = "/".join(parts[idx+1:])
+                image_url = f"{PAGES_BASE_URL}/{rel_url}/layer.png"
+            except:
+                image_url = f"{PAGES_BASE_URL}/images/placeholder.png"
+
+            html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SoChi BLOCKS Puzzle {r['code']}</title>
+    <meta property="og:title" content="SoChi BLOCKS Puzzle {r['code']}">
+    <meta property="og:description" content="Can you solve this puzzle? Tap to view in 3D!">
+    <meta property="og:image" content="{image_url}">
+    <meta property="og:url" content="{PAGES_BASE_URL}/share/{r['code']}.html">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="SoChi BLOCKS Puzzle {r['code']}">
+    <meta name="twitter:description" content="Can you solve this? #SoChiBLOCKS">
+    <meta name="twitter:image" content="{image_url}">
+    
+    <meta http-equiv="refresh" content="0; url={r['url']}">
+    <script>window.location.href = "{r['url']}";</script>
+</head>
+<body>
+    <p>Redirecting to puzzle viewer... <a href="{r['url']}">Click here</a> if not redirected.</p>
+</body>
+</html>
+"""
+            with open(share_html_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            r["share_url"] = f"{PAGES_BASE_URL}/share/{r['code']}.html"
+            print(f"  [OK] Generated manual share html -> {share_html_path}")
 
     # Summary
     print("\n" + "=" * 60)
@@ -387,27 +513,79 @@ def main():
     print("\n  Regenerating manifest.json...")
     generate_manifest(engine)
 
-    # Git publish
-    date_str = datetime.utcnow().strftime("%Y%m%d")
-    codes = " ".join(r["code"] for r in results)
-    commit_msg = f"puzzle: publish {date_str} ({codes})"
+    # Git publish (only if NOT in manual mode)
+    if not args.dir:
+        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        codes = " ".join(r["code"] for r in results)
+        commit_msg = f"puzzle: publish {date_str} ({codes})"
 
-    print("\n  Publishing to GitHub Pages...")
-    try:
-        import subprocess as _sp
-        _sp.run(["git", "add", "docs/", "frontend/public/puzzles/"],
-                check=True, cwd=str(PROJECT_ROOT))
-        _sp.run(["git", "commit", "-m", commit_msg],
-                check=True, cwd=str(PROJECT_ROOT))
-        _sp.run(["git", "push", "origin", "main"],
-                check=True, cwd=str(PROJECT_ROOT))
-        print("  [OK] Pushed to GitHub Pages!")
-    except Exception as e:
-        print(f"  [WARN] git push failed: {e}")
-        print("  Run manually:")
-        print(f'    git add docs/ frontend/public/puzzles/')
-        print(f'    git commit -m "{commit_msg}"')
-        print('    git push origin main')
+        print("\n  Publishing to GitHub Pages...")
+        try:
+            _sp.run(["git", "add", "docs/", "frontend/public/puzzles/"],
+                    check=True, cwd=str(PROJECT_ROOT))
+            _sp.run(["git", "commit", "-m", commit_msg],
+                    check=True, cwd=str(PROJECT_ROOT))
+            _sp.run(["git", "push", "origin", "main"],
+                    check=True, cwd=str(PROJECT_ROOT))
+            print("  [OK] Pushed to GitHub Pages!")
+        except Exception as e:
+            print(f"  [WARN] git push failed: {e}")
+            print("  Run manually:")
+            print('    git push origin main')
+
+    # Twitter publish
+    if args.twitter:
+        print("\n  Posting to Twitter...")
+        for r in results:
+            print(f"  [TX] Posting {r['code']} ...")
+            try:
+                # Use subprocess to run the specific script with poetry
+                # Pass share_url instead of the viewer url
+                _sp.run(["poetry", "run", "python", "scripts/publish_twitter.py", 
+                         "--dir", r["img_dir"], "--link-only", "--url", r["share_url"]],
+                        check=True, cwd=str(PROJECT_ROOT))
+            except Exception as e:
+                print(f"  [WARN] Twitter post failed for {r['code']}: {e}")
+
+    # Instagram publish
+    if args.instagram:
+        print("\n  Posting to Instagram...")
+        # First, ensure at least one asset is live on GitHub Pages
+        # The Instagram API requires media to be publicly accessible via URL.
+        # Since we just pushed to GitHub Pages, we wait a bit for it to be live.
+        for r in results:
+            print(f"  [IG] Waiting for media to be live: {r['code']} ...")
+            # Check for layer.png as a proxy for the whole folder
+            asset_url = f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/layer.png"
+            
+            max_retries = 15
+            retry_wait = 20 # seconds
+            is_live = False
+            
+            for attempt in range(1, max_retries + 1):
+                try:
+                    with urllib.request.urlopen(asset_url) as response:
+                        if response.getcode() == 200:
+                            print(f"    [OK] Media is live! (Attempt {attempt})")
+                            is_live = True
+                            break
+                except (urllib.error.HTTPError, urllib.error.URLError):
+                    pass
+                
+                print(f"    [...] Still waiting for GitHub Pages... (Attempt {attempt}/{max_retries})")
+                time.sleep(retry_wait)
+            
+            if is_live:
+                try:
+                    # Use subprocess to run the specific script with poetry
+                    _sp.run(["poetry", "run", "python", "scripts/publish_instagram.py", 
+                             "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL],
+                            check=True, cwd=str(PROJECT_ROOT))
+                except Exception as e:
+                    print(f"  [WARN] Instagram post failed for {r['code']}: {e}")
+            else:
+                print(f"  [ERROR] Media did not become live in time. Skipping Instagram post for {r['code']}.")
+
     print("=" * 60)
 
 

@@ -513,13 +513,13 @@
 /* ══ VICTORY OVERLAY ══════════════════════════════════════════ */
 
 .victory-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.45);
-  z-index: 50;
+  z-index: 1000;
   animation: victory-fade 0.3s ease;
 }
 
@@ -536,12 +536,16 @@
 .victory-card {
   background: #fff;
   border-radius: 16px;
-  padding: 36px 48px;
+  padding: 28px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  /* 画面幅・高さをはみ出さないよう制限 */
+  max-width: min(92vw, 400px);
+  max-height: 90dvh;
+  overflow-y: auto;
 }
 
 .victory-emoji {
@@ -598,6 +602,92 @@
 
 .victory-view-solution:hover {
   background: #c8e6c9;
+}
+
+/* ══ SHARE RESULT ════════════════════════════════════════════ */
+
+.share-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.share-text-preview {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: #444;
+  background: #f7f7f7;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  white-space: pre-line;
+  /* 改行を保持しつつ折り返し可能に */
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.share-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.share-btn {
+  padding: 8px 16px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: 'Arial', sans-serif;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.share-btn--x {
+  background: #000;
+  color: #fff;
+}
+
+.share-btn--x:hover {
+  background: #333;
+}
+
+.share-btn--instagram {
+  background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: #fff;
+}
+
+.share-btn--instagram:hover {
+  opacity: 0.85;
+}
+
+.share-btn--copy {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1.5px solid #a5d6a7;
+}
+
+.share-btn--copy:hover {
+  background: #c8e6c9;
+}
+
+.share-btn--copied {
+  background: #c8e6c9;
+  color: #1b5e20;
+  border-color: #81c784;
+}
+
+.share-hint {
+  font-size: 0.65rem;
+  color: #888;
+  margin-top: 4px;
 }
 
 /* ══ PC LAYOUT (≥ 768px) ════════════════════════════════════ */

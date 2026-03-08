@@ -2,12 +2,11 @@ import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { PuzzleVoxels } from './PuzzleVoxels';
-import { AxisArrows } from './AxisArrows';
 import type { PuzzleData } from '../types/puzzle';
 import type { Vec3 } from '../utils/rotations';
 
 type CaptureAngle = 'x' | 'y' | null;
-type CellFlash    = { type: 'error' } | null;
+type CellFlash = { type: 'error' } | null;
 
 type Props = {
   data: PuzzleData;
@@ -25,6 +24,7 @@ type Props = {
   ghostCells?: Set<string>;
   onEmptyCellClick?: (coord: Vec3) => void;
   cellFlash?: CellFlash;
+  phase?: string;
   // Legacy prop for answer/capture mode (hides pieces without placeholders)
   hiddenPieces?: Set<string>;
 };
@@ -58,22 +58,6 @@ export const Viewer = ({
 
   const bg = capture ? '#ffffff' : '#f5f5f5';
 
-  // Axis origin: min corner of the puzzle grid in Three.js world space.
-  // Coordinate mapping: three-X = puzzle-X, three-Y = puzzle-Z, three-Z = puzzle-Y
-  const axisOrigin = useMemo((): [number, number, number] => {
-    const { x, y, z } = data.grid;
-    return [
-      -(x - 1) / 2 - 0.6,   // three-X (puzzle X min)
-      -(z - 1) / 2 - 0.6,   // three-Y (puzzle Z min)
-      -(y - 1) / 2 - 0.6,   // three-Z (puzzle Y min)
-    ];
-  }, [data.grid]);
-
-  const axisLength = useMemo(
-    () => Math.min(data.grid.x, data.grid.y, data.grid.z) * 0.8,
-    [data.grid]
-  );
-
   return (
     <Canvas camera={{ position: cameraPos, fov: 40 }} style={{ background: bg, width: '100%', height: '100%' }}>
       <ambientLight intensity={1.5} />
@@ -93,7 +77,6 @@ export const Viewer = ({
         hiddenPieces={hiddenPieces}
       />
       {!capture && <OrbitControls makeDefault enablePan={true} />}
-      {!capture && <AxisArrows origin={axisOrigin} length={axisLength} />}
     </Canvas>
   );
 };
