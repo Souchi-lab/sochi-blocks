@@ -14,6 +14,9 @@ reportlab = "^4.4.7"
 qrcode = "^8.2"
 Pillow = "^11.0"
 playwright = "^1.49"
+matplotlib = "^3.10.8"
+numpy = "^2.4.2"
+tweepy = "^4.16.0"
 
 [tool.poetry.group.dev.dependencies]
 alembic = "^1.16.4"

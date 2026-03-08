@@ -76,10 +76,10 @@ export const PuzzleVoxels = ({
           cell.y - offset.y,
         ];
 
-        const coordKey  = `${cell.x},${cell.y},${cell.z}`;
+        const coordKey = `${cell.x},${cell.y},${cell.z}`;
         const isRemoved = removedPieces?.has(cell.piece) ?? false;
-        const filledBy  = placedCells?.get(coordKey);   // pieceId that filled this cell
-        const isEmpty   = isRemoved && filledBy === undefined;
+        const filledBy = placedCells?.get(coordKey);   // pieceId that filled this cell
+        const isEmpty = isRemoved && filledBy === undefined;
 
         if (!isEmpty) {
           // Solid cell — original puzzle block or player-placed block.
@@ -107,9 +107,9 @@ export const PuzzleVoxels = ({
         }
 
         // ── Ghost / empty cell ──────────────────────────────────────
-        const isAnchor     = validAnchorCells?.has(coordKey) ?? false;
-        const isGhost      = ghostCells?.has(coordKey) ?? false;
-        const isFlashing   = cellFlash?.type === 'error' && isAnchor;
+        const isAnchor = validAnchorCells?.has(coordKey) ?? false;
+        const isGhost = ghostCells?.has(coordKey) ?? false;
+        const isFlashing = cellFlash?.type === 'error' && isAnchor;
         const hasSelection = selectedPiece != null;
 
         // Visual hierarchy (Phase 3 cursor mode):
@@ -118,24 +118,24 @@ export const PuzzleVoxels = ({
         //   anchor (non-cursor)    → 0.35  (dim indicator: other valid anchor positions)
         //   non-ghost + selection  → 0.05  (very dim: empty holes not targeted)
         //   no piece selected      → 0.15  (neutral gray holes)
-        const opacity = isFlashing   ? 0.85
-                      : isGhost      ? 1.0
-                      : isAnchor     ? 0.35
-                      : hasSelection ? 0.05
-                      :                0.15;
+        const opacity = isFlashing ? 0.85
+          : isGhost ? 1.0
+            : isAnchor ? 0.35
+              : hasSelection ? 0.05
+                : 0.15;
 
-        const color = isFlashing            ? '#ef4444'
-                    : (isAnchor || isGhost) ? getPieceColor(selectedPiece!)
-                    :                         '#888888';
+        const color = isFlashing ? '#ef4444'
+          : (isAnchor || isGhost) ? getPieceColor(selectedPiece!)
+            : '#888888';
 
         return (
           <mesh
             key={i}
             position={pos}
-            onClick={isAnchor ? (e) => {
+            onClick={(e) => {
               e.stopPropagation();
               onEmptyCellClick?.([cell.x, cell.y, cell.z]);
-            } : undefined}
+            }}
           >
             <boxGeometry args={[BOX_SIZE, BOX_SIZE, BOX_SIZE]} />
             <meshStandardMaterial

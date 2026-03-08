@@ -573,8 +573,9 @@ def capture_3d_images(
 # ---------------------------------------------------------------------------
 
 VIEWER_BASE_URL = "https://souchi-lab.github.io/sochi-blocks/viewer.html"
+SHARE_BASE_URL = "https://souchi-lab.github.io/sochi-blocks/share"
 
-CAPTION_TEMPLATE = """\
+INSTAGRAM_CAPTION_TEMPLATE = """\
 🧩 SoChi BLOCKS — THINK IN 3D.
 
 Puzzle: {puzzle_id}
@@ -586,21 +587,49 @@ Play via the link in bio 👆
 
 #SoChiBLOCKS #pentomino #3dpuzzle #braintraining #thinkin3d #puzzlechallenge"""
 
+TWITTER_CAPTION_TEMPLATE = """\
+🧩 SoChi BLOCKS — THINK IN 3D.
+
+Puzzle: {puzzle_id}
+Difficulty: {difficulty}
+
+Can you solve this in 3D?
+Try it here: {share_url} 🧩
+
+#SoChiBLOCKS #3dpuzzle #thinkin3d"""
+
 
 def build_viewer_url(puzzle_id: str) -> str:
     return f"{VIEWER_BASE_URL}?puzzle_id={puzzle_id}"
 
 
-def write_caption(output_dir: Path, puzzle_id: str, difficulty: str) -> str:
+def build_share_url(puzzle_id: str) -> str:
+    return f"{SHARE_BASE_URL}/{puzzle_id}.html"
+
+
+def write_caption(output_dir: Path, puzzle_id: str, difficulty: str) -> None:
     viewer_url = build_viewer_url(puzzle_id)
-    caption = CAPTION_TEMPLATE.format(
+    share_url = build_share_url(puzzle_id)
+    
+    # Instagram Caption
+    ig_caption = INSTAGRAM_CAPTION_TEMPLATE.format(
         puzzle_id=puzzle_id,
         difficulty=difficulty,
-        viewer_url=viewer_url,
     )
-    (output_dir / "caption.txt").write_text(caption, encoding="utf-8")
+    (output_dir / "caption_instagram.txt").write_text(ig_caption, encoding="utf-8")
+    
+    # Twitter Caption
+    tw_caption = TWITTER_CAPTION_TEMPLATE.format(
+        puzzle_id=puzzle_id,
+        difficulty=difficulty,
+        share_url=share_url,
+    )
+    (output_dir / "caption_twitter.txt").write_text(tw_caption, encoding="utf-8")
+    
     (output_dir / "url.txt").write_text(viewer_url, encoding="utf-8")
-    return caption
+    # For backward compatibility or general preview
+    (output_dir / "caption.txt").write_text(ig_caption, encoding="utf-8")
+    return ig_caption
 
 
 def copy_to_clipboard(text: str) -> bool:
