@@ -62,6 +62,21 @@ const SNS = {
     victoryHold: 2500,  // VICTORY 表示後の待機
 };
 
+// Teaser モード設定 (目標: 6〜8秒)
+// drama: i=0 (ミスプレイス演出あり・短縮版)
+// fast:  中間ピース (超高速・ガチャガチャ感)
+// last:  最終ピース (短縮版・高品質フィニッシュ)
+const TEASER = {
+    drama:  { select: 150, thinkCount: 3,  thinkPerRot: 60,  thinkFinal: 100, cursorFinal: 60,  settle: 150 },
+    fast:   { select: 20,  thinkCount: 2,  thinkPerRot: 10,  thinkFinal: 15,  cursorFinal: 20,  settle: 25  },
+    last:   { select: 180, thinkCount: 4,  thinkPerRot: 80,  thinkFinal: 130, cursorFinal: 80,  settle: 220 },
+    wrongCursor:   80,
+    misplacePause: 500,
+    retractPause:  320,
+    recovery:      100,
+    victoryHold:  1200,
+};
+
 function snsDispatch(phase: string, detail: Record<string, unknown> = {}) {
     window.dispatchEvent(
         new CustomEvent('autoplay-phase', { detail: { phase, ...detail } })
@@ -73,6 +88,7 @@ function snsDispatch(phase: string, detail: Record<string, unknown> = {}) {
 export function useAutoPlayer({
     autoplay,
     snsMode = false,
+    snsVideoMode = 'full_play',
     data,
     gameState,
     selectPiece,
@@ -86,6 +102,7 @@ export function useAutoPlayer({
 }: {
     autoplay: boolean;
     snsMode?: boolean;
+    snsVideoMode?: 'full_play' | 'teaser';
     data: PuzzleData | null;
     gameState: GameState;
     selectPiece: (p: string) => void;
@@ -123,10 +140,12 @@ export function useAutoPlayer({
             const hookOverride = params.get('hook') || undefined;
             const diff = getSNSDiff(totalPieces, hookOverride);
 
+            const isTeaser = snsMode && snsVideoMode === 'teaser';
+
             if (snsMode) {
-                console.log(`[AutoPlayer][SNS] ${diff.label} / ${totalPieces} pieces / Misplace: ${[...diff.misplaceAt].join(',')}`);
+                console.log(`[AutoPlayer][SNS] ${diff.label} / ${totalPieces} pieces / Misplace: ${[...diff.misplaceAt].join(',')} / mode: ${snsVideoMode} / isTeaser: ${isTeaser} / t=${Date.now()}`);
                 snsDispatch('intro', { label: diff.label, total: totalPieces, hook: diff.hook });
-                await sleep(snsMode ? 1000 : 0); // Intro pause
+                await sleep(isTeaser ? 700 : 1000); // Intro pause
             }
 
             // Normal mode duration targets
@@ -136,15 +155,23 @@ export function useAutoPlayer({
 
             for (let i = 0; i < totalPieces; i++) {
                 const pieceToPlay = removedList[i];
+                // teaser ロール: drama=最初, fast=中間, last=最後
+                const isTeaserDrama = isTeaser && i === 0;
+                const isTeaserLast  = isTeaser && i === totalPieces - 1 && totalPieces > 1;
+                const isTeaserFast  = isTeaser && !isTeaserDrama && !isTeaserLast;
+                const tRole = isTeaserDrama ? TEASER.drama : isTeaserFast ? TEASER.fast : isTeaserLast ? TEASER.last : null;
 
                 if (snsMode) {
-                    console.log(`[AutoPlayer][SNS] Piece ${pieceToPlay} (${i + 1}/${totalPieces})`);
+                    const roleTag = isTeaserDrama ? ' [DRAMA]' : isTeaserFast ? ' [FAST]' : isTeaserLast ? ' [LAST]' : '';
+                    console.log(`[AutoPlayer][SNS] Piece ${pieceToPlay} (${i + 1}/${totalPieces})${roleTag} t=${Date.now()}`);
                     snsDispatch('float', { pieceIdx: i, total: totalPieces, label: diff.label, hook: diff.hook });
+                    // ② 最初の fast ピース開始時に SPEED RUN フラッシュ
+                    if (isTeaserFast && i === 1) snsDispatch('speed_flash');
                 }
 
                 // ------- Step 1: Select the piece -------
                 selectPiece(pieceToPlay);
-                await sleep(snsMode ? SNS.select : 1500 * pacingMultiplier);
+                await sleep(snsMode ? (tRole?.select ?? SNS.select) : 1500 * pacingMultiplier);
 
                 const pieceShape = getPieceShape(pieceToPlay) as Vec3[];
                 if (!pieceShape || pieceShape.length === 0) continue;
@@ -155,14 +182,16 @@ export function useAutoPlayer({
 
                 // ------- Step 2: Thinking (Rotations) -------
                 const uniqueRots = uniqueRotationIndices(pieceShape);
-                const thinkCount = snsMode ? diff.thinkCount : (Math.floor(Math.random() * 3) + 5);
+                const thinkCount = snsMode
+                    ? (tRole?.thinkCount ?? diff.thinkCount)
+                    : (Math.floor(Math.random() * 3) + 5);
                 let currentRot = 0;
 
                 for (let r = 0; r < thinkCount; r++) {
                     const idx = uniqueRots[Math.floor(Math.random() * uniqueRots.length)];
                     if (setRotation) setRotation(idx);
                     currentRot = idx;
-                    await sleep(snsMode ? SNS.thinkPerRot : (800 + Math.random() * 700) * pacingMultiplier);
+                    await sleep(snsMode ? (tRole?.thinkPerRot ?? SNS.thinkPerRot) : (800 + Math.random() * 700) * pacingMultiplier);
                 }
 
                 // ------- Step 3: Find Solution -------
@@ -193,10 +222,11 @@ export function useAutoPlayer({
 
                 // Sync to solution rotation
                 if (setRotation) setRotation(solutionRot);
-                await sleep(snsMode ? SNS.thinkFinal : 1000 * pacingMultiplier);
+                await sleep(snsMode ? (tRole?.thinkFinal ?? SNS.thinkFinal) : 1000 * pacingMultiplier);
 
                 // ------- Step 4: MISPLACE Logic (SNS Mode Only) -------
-                const isMisplace = snsMode && diff.misplaceAt.has(i);
+                // teaser: 必ず i=0 (drama) でミスプレイス / full_play: diff.misplaceAt に従う
+                const isMisplace = snsMode && (isTeaser ? isTeaserDrama : diff.misplaceAt.has(i));
                 if (isMisplace) {
                     const solutionKeys = new Set(solutionCoords);
                     const mistakenEmptyCells = allEmptyCells.filter(c => !solutionKeys.has(`${c[0]},${c[1]},${c[2]}`));
@@ -209,21 +239,21 @@ export function useAutoPlayer({
 
                         if (setCursorIndex && targetBadIdx >= 0) {
                             setCursorIndex(targetBadIdx);
-                            await sleep(SNS.wrongCursor);
+                            await sleep(isTeaser ? TEASER.wrongCursor : SNS.wrongCursor);
                         }
 
                         // WRONG PLACE
                         if (wrongClick) wrongClick(pieceToPlay);
                         snsDispatch('misplace');
-                        await sleep(SNS.misplacePause);
+                        await sleep(isTeaser ? TEASER.misplacePause : SNS.misplacePause);
 
                         // RETRACT
                         if (unplacePiece) unplacePiece(pieceToPlay);
                         snsDispatch('misplace_retract');
-                        await sleep(SNS.retractPause);
+                        await sleep(isTeaser ? TEASER.retractPause : SNS.retractPause);
 
                         // Recovery delay
-                        await sleep(300);
+                        await sleep(isTeaser ? TEASER.recovery : 300);
                     }
                 }
 
@@ -234,19 +264,25 @@ export function useAutoPlayer({
 
                 if (setCursorIndex && targetIdx >= 0) {
                     setCursorIndex(targetIdx);
-                    await sleep(snsMode ? 150 : 500 * pacingMultiplier);
+                    await sleep(snsMode ? (tRole?.cursorFinal ?? 150) : 500 * pacingMultiplier);
                 }
 
                 if (snsMode) snsDispatch('snap');
                 placePiece(pieceToPlay, solutionCoords);
 
-                await sleep(snsMode ? SNS.settle : 2000 * pacingMultiplier);
+                await sleep(snsMode ? (tRole?.settle ?? SNS.settle) : 2000 * pacingMultiplier);
+
+                // B-1: drama piece 配置後にタップヒントを表示 (teaser のみ)
+                if (isTeaserDrama) {
+                    snsDispatch('tap_hint');
+                    await sleep(700);
+                }
             }
 
             if (snsMode) {
-                console.log(`[AutoPlayer][SNS] Done!`);
+                console.log(`[AutoPlayer][SNS] Done! t=${Date.now()}`);
                 snsDispatch('victory', { total: totalPieces, label: diff.label, hook: diff.hook });
-                await sleep(SNS.victoryHold);
+                await sleep(isTeaser ? TEASER.victoryHold : SNS.victoryHold);
             }
         };
 

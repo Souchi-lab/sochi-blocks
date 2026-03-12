@@ -800,3 +800,703 @@
   background: rgba(255, 255, 255, 0.90);
   pointer-events: none;
 }
+
+/* ══════════════════════════════════════════════════════════
+   SNS モード — 動画撮影用フルコントロールレイアウト
+   (?autoplay=1&sns=1 のとき .sns-mode が付く)
+   ══════════════════════════════════════════════════════════ */
+
+/* SNSモードではヘッダーとサイドバーを非表示 → Viewerがフル画面 */
+.sns-mode .app-header {
+  display: none;
+}
+
+.sns-mode .app-body {
+  height: 100dvh;
+}
+
+.sns-mode .viewer-area {
+  flex: 1;
+  height: 100%;
+}
+
+/* ── SNS オーバーレイ本体 ─────────────────────────────── */
+.sns-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  font-family: 'Arial', sans-serif;
+}
+
+/* ── ウォーターマーク  (右下・小) ───────────────────────── */
+.sns-watermark {
+  position: absolute;
+  bottom: 28px;
+  right: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.6);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ── フックテキスト (上部中央) ──────────────────────────── */
+.sns-hook-text {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* intro フェーズではバッジが先に登場し、hook は少し遅れてフェードイン */
+.sns-hook-text--intro {
+  animation: sns-hook-fadein 0.4s 0.25s ease-out both;
+}
+
+@keyframes sns-hook-fadein {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.sns-hook-main {
+  font-size: clamp(48px, 9vw, 96px);
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow:
+    0 0 30px rgba(0, 0, 0, 0.8),
+    0 3px 16px rgba(0, 0, 0, 0.6);
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+
+.sns-hook-sub {
+  font-size: clamp(22px, 4.5vw, 40px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.18em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* ── ドットインジケーター (下部中央) ───────────────────── */
+.sns-dots {
+  position: absolute;
+  bottom: 64px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.sns-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  transition: background 0.3s, transform 0.3s;
+}
+
+.sns-dot.done {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.sns-dot.current {
+  background: #fff;
+  border-color: #fff;
+  transform: scale(1.3);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+/* ══════════════════════════════════════════════════════════
+   MISPLACE レイヤー — 大げさに！
+   ══════════════════════════════════════════════════════════ */
+
+.sns-misplace-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: sns-misplace-enter 0.12s ease-out forwards;
+}
+
+@keyframes sns-misplace-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 赤半透明フラッシュ */
+.sns-red-flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(220, 30, 30, 0.42);
+  animation: sns-red-pulse 0.25s ease-out;
+}
+
+@keyframes sns-red-pulse {
+  0% {
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.42;
+  }
+}
+
+/* 巨大 ✗ アイコン — ★限界まで大げさ！画面を埋め尽くす★ */
+.sns-wrong-icon {
+  font-size: clamp(160px, 45vw, 360px);
+  font-weight: 900;
+  color: #ff2222;
+  line-height: 1;
+  text-shadow:
+    0 0 60px rgba(255, 0, 0, 1),
+    0 0 120px rgba(255, 0, 0, 0.7),
+    0 8px 40px rgba(0, 0, 0, 0.8);
+  animation: sns-wrong-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  position: relative;
+  z-index: 5;
+}
+
+@keyframes sns-wrong-pop {
+  0% {
+    transform: scale(0) rotate(-25deg);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.18) rotate(6deg);
+    opacity: 1;
+  }
+
+  80% {
+    transform: scale(0.92) rotate(-2deg);
+  }
+
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* "Wait... that's wrong!" テキスト */
+.sns-wrong-label {
+  font-size: clamp(24px, 6vw, 52px);
+  font-weight: 900;
+  color: #ff4444;
+  letter-spacing: 0.02em;
+  text-shadow:
+    0 0 20px rgba(255, 0, 0, 0.7),
+    0 3px 14px rgba(0, 0, 0, 0.6);
+  animation: sns-label-fade 0.25s 0.1s ease-out both;
+}
+
+@keyframes sns-label-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ══ RETRACT シェイク ═══════════════════════════════════════ */
+
+.sns-retract-shake {
+  position: absolute;
+  inset: 0;
+  animation: sns-screen-shake 0.55s ease-out both;
+  pointer-events: none;
+}
+
+/* 画面全体を揺らす (✗ が弾き出される印象) */
+@keyframes sns-screen-shake {
+  0% {
+    transform: translateX(0) rotate(0deg);
+  }
+
+  10% {
+    transform: translateX(-18px) rotate(-2.5deg);
+  }
+
+  25% {
+    transform: translateX(16px) rotate(2deg);
+  }
+
+  40% {
+    transform: translateX(-12px) rotate(-1.5deg);
+  }
+
+  55% {
+    transform: translateX(10px) rotate(1deg);
+  }
+
+  70% {
+    transform: translateX(-6px) rotate(-0.5deg);
+  }
+
+  85% {
+    transform: translateX(4px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* ══ SNAP 白フラッシュ ══════════════════════════════════════ */
+
+.sns-snap-flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.72);
+  animation: sns-snap-out 0.45s ease-out both;
+  pointer-events: none;
+}
+
+@keyframes sns-snap-out {
+  0% {
+    opacity: 0.72;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   VICTORY 画面
+   ══════════════════════════════════════════════════════════ */
+
+.sns-victory {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  animation: sns-victory-fade 0.4s ease-out both;
+}
+
+@keyframes sns-victory-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.sns-victory-solved {
+  font-size: clamp(72px, 16vw, 140px);
+  font-weight: 900;
+  color: #ffd700;
+  letter-spacing: -0.01em;
+  text-shadow:
+    0 0 50px rgba(255, 215, 0, 1),
+    0 0 100px rgba(255, 215, 0, 0.5),
+    0 6px 30px rgba(0, 0, 0, 0.7);
+  animation: sns-solved-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes sns-solved-pop {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.sns-victory-label {
+  font-size: clamp(22px, 5vw, 40px);
+  font-weight: 900;
+  letter-spacing: 0.25em;
+  color: rgba(255, 255, 255, 0.9);
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.sns-victory-stars {
+  display: flex;
+  gap: 6px;
+}
+
+.sns-star {
+  font-size: clamp(32px, 8vw, 64px);
+  color: rgba(255, 255, 255, 0.2);
+  transition: color 0.15s, text-shadow 0.15s, transform 0.2s;
+}
+
+.sns-star.lit {
+  color: #ffd700;
+  text-shadow: 0 0 16px rgba(255, 215, 0, 0.9);
+  transform: scale(1.25);
+  animation: sns-star-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes sns-star-pop {
+  from {
+    transform: scale(0.5);
+  }
+
+  to {
+    transform: scale(1.25);
+  }
+}
+
+.sns-victory-cta {
+  font-size: clamp(26px, 5vw, 44px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  letter-spacing: 0.03em;
+  margin-top: 8px;
+  animation: sns-cta-rise 0.4s ease-out both;
+  line-height: 1.5;
+}
+
+@keyframes sns-cta-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sns-victory-url {
+  display: block;
+  font-size: clamp(22px, 4.5vw, 40px);
+  font-weight: 800;
+  color: #58a6ff;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0 16px rgba(88, 166, 255, 0.6);
+  margin-top: 4px;
+}
+
+/* .victory-screen-done は Playwright が待機する selector */
+/* (このクラスが付いたら録画を終了する) */
+.victory-screen-done .sns-victory-cta {
+  opacity: 1;
+  /* 念のため確実に表示 */
+}
+
+/* ── VICTORY: AMAZING! サブヘッドライン ──────────────────── */
+.sns-victory-sub {
+  font-size: clamp(22px, 5vw, 44px);
+  font-weight: 900;
+  color: #ff9aff;
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0 20px rgba(255, 100, 255, 0.8),
+    0 3px 12px rgba(0, 0, 0, 0.5);
+  animation: sns-sub-pop 0.3s 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes sns-sub-pop {
+  from {
+    transform: scale(0.6) rotate(-5deg);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* ── VICTORY: コンフェッティ絵文字バースト ────────────────── */
+.sns-confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sns-confetti-item {
+  position: absolute;
+  font-size: clamp(28px, 6vw, 56px);
+  animation: sns-confetti-fall linear both;
+  opacity: 0;
+}
+
+/* 8個のコンフェッティを違う位置・速度で降らせる */
+.sns-confetti-item.c0 {
+  left: 8%;
+  animation-duration: 1.8s;
+  animation-delay: 0.0s;
+}
+
+.sns-confetti-item.c1 {
+  left: 22%;
+  animation-duration: 2.1s;
+  animation-delay: 0.1s;
+}
+
+.sns-confetti-item.c2 {
+  left: 38%;
+  animation-duration: 1.6s;
+  animation-delay: 0.2s;
+}
+
+.sns-confetti-item.c3 {
+  left: 53%;
+  animation-duration: 2.3s;
+  animation-delay: 0.05s;
+}
+
+.sns-confetti-item.c4 {
+  left: 67%;
+  animation-duration: 1.9s;
+  animation-delay: 0.15s;
+}
+
+.sns-confetti-item.c5 {
+  left: 80%;
+  animation-duration: 2.0s;
+  animation-delay: 0.25s;
+}
+
+.sns-confetti-item.c6 {
+  left: 14%;
+  animation-duration: 2.4s;
+  animation-delay: 0.3s;
+}
+
+.sns-confetti-item.c7 {
+  left: 91%;
+  animation-duration: 1.7s;
+  animation-delay: 0.08s;
+}
+
+@keyframes sns-confetti-fall {
+  0% {
+    top: -60px;
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 110%;
+    opacity: 0.2;
+    transform: rotate(360deg) scale(0.7);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   A: INTRO バッジ — 難易度をドラマチックに表示
+   ══════════════════════════════════════════════════════════ */
+
+.sns-intro-badge {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  padding: 18px 52px;
+  border-radius: 16px;
+  font-size: clamp(64px, 14vw, 120px);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: sns-badge-slam 0.7s linear both;
+}
+
+@keyframes sns-badge-slam {
+  0%   { transform: translateX(-50%) translateY(-50%) scale(0.15) rotate(-10deg); opacity: 0; }
+  15%  { opacity: 1; }
+  30%  { transform: translateX(-50%) translateY(-50%) scale(1.15) rotate(3deg);   opacity: 1; }
+  42%  { transform: translateX(-50%) translateY(-50%) scale(0.95) rotate(-1.5deg); opacity: 1; }
+  52%  { transform: translateX(-50%) translateY(-50%) scale(1.04) rotate(1deg);   opacity: 1; }
+  60%  { transform: translateX(-50%) translateY(-50%) scale(1)    rotate(0deg);   opacity: 1; }
+  78%  { transform: translateX(-50%) translateY(-50%) scale(1)    rotate(0deg);   opacity: 1; }
+  100% { transform: translateX(-50%) translateY(-50%) scale(1)    rotate(0deg);   opacity: 0; }
+}
+
+.sns-intro-badge--easy {
+  background: linear-gradient(135deg, #43a047, #1b5e20);
+  color: #fff;
+  box-shadow: 0 0 60px rgba(67, 160, 71, 0.7), 0 8px 32px rgba(0,0,0,0.5);
+  text-shadow: 0 3px 12px rgba(0,0,0,0.4);
+}
+
+.sns-intro-badge--medium {
+  background: linear-gradient(135deg, #fb8c00, #e65100);
+  color: #fff;
+  box-shadow: 0 0 60px rgba(251, 140, 0, 0.7), 0 8px 32px rgba(0,0,0,0.5);
+  text-shadow: 0 3px 12px rgba(0,0,0,0.4);
+}
+
+.sns-intro-badge--hard {
+  background: linear-gradient(135deg, #e53935, #7f0000);
+  color: #fff;
+  box-shadow: 0 0 60px rgba(229, 57, 53, 0.8), 0 8px 32px rgba(0,0,0,0.5);
+  text-shadow: 0 3px 12px rgba(0,0,0,0.4);
+}
+
+.sns-intro-badge--extreme {
+  background: linear-gradient(135deg, #6a1b9a, #1a0030, #b71c1c);
+  color: #ffd700;
+  box-shadow: 0 0 80px rgba(180, 0, 255, 0.6), 0 0 30px rgba(255, 0, 0, 0.4), 0 8px 32px rgba(0,0,0,0.6);
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.9), 0 3px 12px rgba(0,0,0,0.6);
+}
+
+/* ══════════════════════════════════════════════════════════
+   B-1: TAP HINT — 指タップアニメーション
+   ══════════════════════════════════════════════════════════ */
+
+.sns-tap-hint {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  animation: sns-tap-hint-lifecycle 0.9s ease-out both;
+}
+
+@keyframes sns-tap-hint-lifecycle {
+  0%   { opacity: 0; transform: translateX(-50%) scale(0.85); }
+  15%  { opacity: 1; transform: translateX(-50%) scale(1); }
+  70%  { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1); }
+}
+
+.sns-tap-ring {
+  position: absolute;
+  bottom: 58px;
+  width: clamp(60px, 12vw, 100px);
+  height: clamp(60px, 12vw, 100px);
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  animation: sns-tap-ring-pulse 0.5s 0.15s ease-out both;
+}
+
+@keyframes sns-tap-ring-pulse {
+  0%   { transform: scale(0.4); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.sns-tap-finger {
+  font-size: clamp(72px, 15vw, 120px);
+  line-height: 1;
+  animation: sns-tap-bounce 0.45s 0.1s ease-in-out both;
+}
+
+@keyframes sns-tap-bounce {
+  0%   { transform: translateY(0); }
+  45%  { transform: translateY(18px); }
+  70%  { transform: translateY(4px); }
+  100% { transform: translateY(0); }
+}
+
+.sns-tap-label {
+  font-size: clamp(22px, 4.5vw, 38px);
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.18em;
+  text-shadow: 0 0 20px rgba(255,255,255,0.5), 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* ══════════════════════════════════════════════════════════
+   B-1: TAP TO PLAY 常時バッジ
+   ══════════════════════════════════════════════════════════ */
+
+.sns-tap-persistent {
+  position: absolute;
+  bottom: 118px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(20px, 3.8vw, 34px);
+  font-weight: 900;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50px;
+  padding: 8px 32px;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  animation: sns-tap-persistent-in 0.4s ease-out both;
+}
+
+@keyframes sns-tap-persistent-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ══════════════════════════════════════════════════════════
+   ② SPEED RUN フラッシュ
+   ══════════════════════════════════════════════════════════ */
+
+.sns-speed-flash {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  animation: sns-speed-show 0.35s linear both;
+}
+
+@keyframes sns-speed-show {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-50%) scale(0.75); }
+  20%  { opacity: 1; transform: translateX(-50%) translateY(-50%) scale(1.06); }
+  55%  { opacity: 1; transform: translateX(-50%) translateY(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-50%) scale(1); }
+}
+
+.sns-speed-icon {
+  font-size: clamp(36px, 7vw, 62px);
+}
+
+.sns-speed-label {
+  font-size: clamp(28px, 5.5vw, 50px);
+  font-weight: 900;
+  color: #ffe000;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 24px rgba(255, 200, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
