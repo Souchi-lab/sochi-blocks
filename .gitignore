@@ -17,6 +17,9 @@ frontend/package-lock.json
 .env
 .env.*
 
+# TikTok session cookies (never commit)
+scripts/tiktok_cookies.json
+
 # Python
 __pycache__/
 *.pyc

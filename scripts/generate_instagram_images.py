@@ -575,17 +575,34 @@ def capture_3d_images(
 VIEWER_BASE_URL = "https://souchi-lab.github.io/sochi-blocks/viewer.html"
 SHARE_BASE_URL = "https://souchi-lab.github.io/sochi-blocks/share"
 
+_DIFFICULTY_TO_LEVEL: dict[str, int] = {
+    "Easy": 1,
+    "Medium": 2,
+    "Hard": 3,
+    "Very Hard": 4,
+}
+
+TIKTOK_CAPTION_TEMPLATE = """\
+Can you solve this?
+
+Play online ↓
+Link in bio
+
+#puzzle #pentomino #braintraining"""
+
 INSTAGRAM_CAPTION_TEMPLATE = """\
 🧩 SoChi BLOCKS — THINK IN 3D.
 
 Puzzle: {puzzle_id}
 Difficulty: {difficulty}
 
-Can you solve this in 3D?
+Can you solve this puzzle in 3D?
 
-Play via the link in bio 👆
+Try it yourself via the link in bio 👆
 
-#SoChiBLOCKS #pentomino #3dpuzzle #braintraining #thinkin3d #puzzlechallenge"""
+#SoChiBLOCKS #pentomino #3dpuzzle #braintraining #puzzlechallenge #mathpuzzle #stemlearning
+#puzzleoftheday #logicpuzzle #spatialreasoning #kidslearning
+#教育 #知育 #空間認識 #パズル #ペントミノ #立体パズル #脳トレ #算数 #理数教育"""
 
 TWITTER_CAPTION_TEMPLATE = """\
 🧩 SoChi BLOCKS — THINK IN 3D.
@@ -610,14 +627,18 @@ def build_share_url(puzzle_id: str) -> str:
 def write_caption(output_dir: Path, puzzle_id: str, difficulty: str) -> None:
     viewer_url = build_viewer_url(puzzle_id)
     share_url = build_share_url(puzzle_id)
-    
-    # Instagram Caption
+
+    # TikTok Caption (Discovery: short, hook-first, no answer spoiler)
+    tk_caption = TIKTOK_CAPTION_TEMPLATE
+    (output_dir / "caption_tiktok.txt").write_text(tk_caption, encoding="utf-8")
+
+    # Instagram Caption (Catalog: descriptive, puzzle ID + difficulty)
     ig_caption = INSTAGRAM_CAPTION_TEMPLATE.format(
         puzzle_id=puzzle_id,
         difficulty=difficulty,
     )
     (output_dir / "caption_instagram.txt").write_text(ig_caption, encoding="utf-8")
-    
+
     # Twitter Caption
     tw_caption = TWITTER_CAPTION_TEMPLATE.format(
         puzzle_id=puzzle_id,
@@ -625,9 +646,9 @@ def write_caption(output_dir: Path, puzzle_id: str, difficulty: str) -> None:
         share_url=share_url,
     )
     (output_dir / "caption_twitter.txt").write_text(tw_caption, encoding="utf-8")
-    
+
     (output_dir / "url.txt").write_text(viewer_url, encoding="utf-8")
-    # For backward compatibility or general preview
+    # Backward compatibility
     (output_dir / "caption.txt").write_text(ig_caption, encoding="utf-8")
     return ig_caption
 
