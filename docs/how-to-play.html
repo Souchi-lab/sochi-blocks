@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en" data-lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoChi BLOCKS — 遊び方 / How to Play</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f5f5f5;
+      color: #1e1e1e;
+      min-height: 100vh;
+    }
+
+    /* ── Language visibility ── */
+    html[data-lang="en"] .ja { display: none !important; }
+    html[data-lang="ja"] .en { display: none !important; }
+
+    /* ── Header ── */
+    header {
+      background: rgba(255,255,255,0.97);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 12px; }
+
+    .back-btn {
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #666;
+      text-decoration: none;
+      border: 1.5px solid #ddd;
+      border-radius: 6px;
+      background: #fff;
+      transition: background 0.15s;
+    }
+    .back-btn:hover { background: #f5f5f5; }
+
+    .brand-group { display: flex; flex-direction: column; gap: 1px; }
+    .brand-text   { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.04em; }
+    .brand-tagline{ font-size: 0.68rem; font-weight: 500; letter-spacing: 0.08em; color: #888; }
+
+    .lang-toggle {
+      background: #f0f4f8;
+      color: #2b6cb0;
+      border: 1px solid #c3d9ed;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .lang-toggle:hover { background: #e2e8f0; }
+
+    /* ── Content ── */
+    .content {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 32px 16px 64px;
+    }
+
+    .page-title {
+      font-size: clamp(1.4rem, 5vw, 2rem);
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    .page-subtitle {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    /* ── Video block ── */
+    .video-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 40px;
+    }
+
+    .video-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .video-tab {
+      padding: 6px 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border: 2px solid #ddd;
+      border-radius: 20px;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #666;
+    }
+    .video-tab.active {
+      border-color: #333;
+      background: #333;
+      color: #fff;
+    }
+
+    .video-wrapper {
+      width: 100%;
+      max-width: 360px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      background: #111;
+    }
+
+    .video-wrapper video {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .video-unavailable {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    .video-unavailable .icon { font-size: 2.5rem; }
+
+    /* ── Steps ── */
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #999;
+      text-transform: uppercase;
+      margin: 36px 0 14px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px 18px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    }
+
+    .step-circle {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #2b6cb0;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 900;
+    }
+
+    .step-info { flex: 1; }
+
+    .step-head {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #1e1e1e;
+      margin-bottom: 4px;
+    }
+
+    .step-body {
+      font-size: 0.87rem;
+      color: #555;
+      line-height: 1.55;
+    }
+
+    .step-pc {
+      display: block;
+      font-size: 0.75rem;
+      color: #aaa;
+      margin-top: 4px;
+    }
+
+    @media (pointer: coarse) {
+      .step-pc { display: none; }
+    }
+
+    kbd {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: monospace;
+      font-size: 0.82em;
+      color: #555;
+    }
+
+    /* ── CTA ── */
+    .cta-section {
+      margin-top: 40px;
+      text-align: center;
+    }
+
+    .cta-btn {
+      display: inline-block;
+      background: #1e1e1e;
+      color: #fff;
+      text-decoration: none;
+      padding: 14px 40px;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .cta-btn:hover { opacity: 0.85; transform: translateY(-2px); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <a class="back-btn" href="./index.html">← Back</a>
+      <div class="brand-group">
+        <span class="brand-text">SoChi BLOCKS</span>
+        <span class="brand-tagline">think in 3D</span>
+      </div>
+    </div>
+    <button class="lang-toggle" onclick="toggleLang()" id="lang-btn">EN</button>
+  </header>
+
+  <div class="content">
+
+    <h1 class="page-title">
+      <span class="ja">遊び方</span>
+      <span class="en">How to Play</span>
+    </h1>
+    <p class="page-subtitle">
+      <span class="ja">動画でルールと操作を確認しよう。30秒で全部わかる！</span>
+      <span class="en">Watch the 30-second tutorial to learn the rules and controls.</span>
+    </p>
+
+    <!-- ── Video block ── -->
+    <div class="video-block">
+      <div class="video-tabs">
+        <button class="video-tab active" onclick="switchLangVideo('ja')" id="tab-ja">JP</button>
+        <button class="video-tab" onclick="switchLangVideo('en')" id="tab-en">EN</button>
+      </div>
+
+      <div class="video-wrapper">
+        <!-- JP video -->
+        <div id="video-ja">
+          <video id="player-ja" controls playsinline autoplay muted loop
+                 poster="" preload="metadata">
+            <source src="./sns_videos/tutorial_ja.mp4" type="video/mp4" />
+          </video>
+        </div>
+        <!-- EN video (hidden by default) -->
+        <div id="video-en" style="display:none;">
+          <video id="player-en" controls playsinline muted loop
+                 poster="" preload="metadata">
+            <source src="./sns_videos/tutorial_en.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
+      <p style="font-size:0.75rem;color:#aaa;margin-top:4px;" class="ja">
+        ※ 動画がない場合は下の手順を参考にしてください
+      </p>
+      <p style="font-size:0.75rem;color:#aaa;margin-top:4px;" class="en">
+        ※ If the video is unavailable, follow the steps below
+      </p>
+    </div>
+
+    <!-- ── Steps ── -->
+    <div class="section-title ja">操作手順</div>
+    <div class="section-title en">Steps</div>
+
+    <div class="steps">
+      <div class="step-row">
+        <div class="step-circle">①</div>
+        <div class="step-info">
+          <div class="step-head ja">ピースを選ぶ</div>
+          <div class="step-head en">Select a Piece</div>
+          <div class="step-body ja">画面下のトレイからピースをタップして選びます。</div>
+          <div class="step-body en">Tap any piece in the tray at the bottom to select it.</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-circle">②</div>
+        <div class="step-info">
+          <div class="step-head ja">向きを変える</div>
+          <div class="step-head en">Rotate It</div>
+          <div class="step-body ja">
+            <kbd>←</kbd> <kbd>→</kbd> ボタンで回転させて、空きスペースに合う向きを探します。
+            <span class="step-pc">PC: <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> キーも使えます</span>
+          </div>
+          <div class="step-body en">
+            Tap <kbd>←</kbd> <kbd>→</kbd> to rotate the piece and find the right fit.
+            <span class="step-pc">PC: Use <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> keys to rotate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-circle">③</div>
+        <div class="step-info">
+          <div class="step-head ja">配置して確定</div>
+          <div class="step-head en">Place It</div>
+          <div class="step-body ja">
+            <kbd>←</kbd> <kbd>→</kbd> で位置を選び、<kbd>Set</kbd> をタップして確定します。全ピースを埋めたらクリア！
+            <span class="step-pc">PC: 3D 上をクリックしても配置できます</span>
+          </div>
+          <div class="step-body en">
+            Use <kbd>←</kbd> <kbd>→</kbd> to choose a position, then tap <kbd>Set</kbd>. Fill all pieces to win!
+            <span class="step-pc">PC: You can also click directly on the 3D grid</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CTA ── -->
+    <div class="cta-section">
+      <a class="cta-btn" href="./index.html">
+        <span class="ja">パズルを選んで挑戦！</span>
+        <span class="en">Choose a Puzzle &amp; Play!</span>
+      </a>
+    </div>
+
+  </div>
+
+  <script>
+    const LANG_KEY = 'sochi_lang';
+
+    function detectLang() {
+      const stored = localStorage.getItem(LANG_KEY);
+      if (stored === 'en' || stored === 'ja') return stored;
+      return navigator.language.startsWith('ja') ? 'ja' : 'en';
+    }
+
+    function applyLang(lang) {
+      document.documentElement.setAttribute('data-lang', lang);
+      const btn = document.getElementById('lang-btn');
+      if (btn) btn.textContent = lang === 'ja' ? 'EN' : 'JP';
+    }
+
+    function toggleLang() {
+      const current = document.documentElement.getAttribute('data-lang') || 'ja';
+      const next = current === 'ja' ? 'en' : 'ja';
+      localStorage.setItem(LANG_KEY, next);
+      applyLang(next);
+    }
+
+    function switchLangVideo(lang) {
+      document.getElementById('video-ja').style.display = lang === 'ja' ? 'block' : 'none';
+      document.getElementById('video-en').style.display = lang === 'en' ? 'block' : 'none';
+      document.getElementById('tab-ja').classList.toggle('active', lang === 'ja');
+      document.getElementById('tab-en').classList.toggle('active', lang === 'en');
+
+      // アクティブな動画を再生
+      const activePlayer = document.getElementById(`player-${lang}`);
+      if (activePlayer) activePlayer.play().catch(() => {});
+    }
+
+    applyLang(detectLang());
+  </script>
+</body>
+</html>

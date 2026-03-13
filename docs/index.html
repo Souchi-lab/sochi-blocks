@@ -1,9 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SoChi BLOCKS — Puzzle Index</title>
+  <title>SoChi BLOCKS — 3D Pentomino Puzzle</title>
+
+  <!-- ── OGP / SNS メタタグ ── -->
+  <meta name="description" content="ペントミノを使った 3D パズル。空いた空間にピースをはめて、空間認識力と論理的思考力を鍛えよう。" />
+  <meta property="og:type"        content="website" />
+  <meta property="og:url"         content="https://souchi-lab.github.io/sochi-blocks/" />
+  <meta property="og:title"       content="SoChi BLOCKS — 3D Pentomino Puzzle" />
+  <meta property="og:description" content="ペントミノを使った 3D パズル。空いた空間にピースをはめて、空間認識力と論理的思考力を鍛えよう。" />
+  <meta property="og:image"       content="https://souchi-lab.github.io/sochi-blocks/images/20260313/002/3d_x.png" />
+  <meta name="twitter:card"       content="summary_large_image" />
+  <meta name="twitter:title"      content="SoChi BLOCKS — 3D Pentomino Puzzle" />
+  <meta name="twitter:description" content="ペントミノを使った 3D パズル。空いた空間にピースをはめよう。" />
+  <meta name="twitter:image"      content="https://souchi-lab.github.io/sochi-blocks/images/20260313/002/3d_x.png" />
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -14,6 +27,10 @@
       min-height: 100vh;
     }
 
+    /* ── Language visibility ── */
+    html[data-lang="en"] .ja { display: none !important; }
+    html[data-lang="ja"] .en { display: none !important; }
+
     /* ── Header ── */
     header {
       background: rgba(255,255,255,0.97);
@@ -22,25 +39,205 @@
       height: 56px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
 
     .brand-group { display: flex; flex-direction: column; gap: 1px; }
     .brand-text  { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.04em; line-height: 1.1; }
     .brand-tagline { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.08em; color: #888; }
 
-    /* ── Content ── */
-    main { max-width: 800px; margin: 0 auto; padding: 24px 16px 48px; }
-
-    h2 {
-      font-size: 0.75rem;
+    .lang-toggle {
+      background: #f0f4f8;
+      color: #2b6cb0;
+      border: 1px solid #c3d9ed;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.85rem;
       font-weight: 700;
-      letter-spacing: 0.12em;
-      color: #999;
-      text-transform: uppercase;
-      margin: 28px 0 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.04em;
+    }
+    .lang-toggle:hover {
+      background: #e2e8f0;
+      border-color: #a0aec0;
     }
 
-    /* ── Puzzle cards ── */
+    /* ── Hero ── */
+    .hero {
+      background: #1e1e1e;
+      color: #fff;
+      padding: 48px 20px 52px;
+      text-align: center;
+    }
+
+    .hero-title {
+      font-size: clamp(2rem, 8vw, 3.5rem);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      line-height: 1.0;
+    }
+
+    .hero-tagline {
+      font-size: clamp(0.75rem, 3vw, 1rem);
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      color: rgba(255,255,255,0.5);
+      margin-top: 6px;
+      text-transform: uppercase;
+    }
+
+    .hero-desc {
+      font-size: clamp(0.95rem, 3.5vw, 1.1rem);
+      line-height: 1.7;
+      color: rgba(255,255,255,0.82);
+      margin-top: 20px;
+      max-width: 540px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-cta {
+      display: inline-block;
+      margin-top: 28px;
+      background: #fff;
+      color: #1e1e1e;
+      border: none;
+      border-radius: 50px;
+      padding: 12px 36px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-decoration: none;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .hero-cta:hover {
+      opacity: 0.88;
+      transform: translateY(-2px);
+    }
+
+    /* ── Content wrapper ── */
+    .content { max-width: 800px; margin: 0 auto; padding: 0 16px 64px; }
+
+    /* ── Section titles ── */
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #999;
+      text-transform: uppercase;
+      margin: 40px 0 16px;
+    }
+
+    /* ── How to play ── */
+    .steps {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    @media (min-width: 600px) {
+      .steps { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .step-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .step-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .step-num {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #aaa;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .step-head {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #1e1e1e;
+      line-height: 1.2;
+    }
+
+    .step-body {
+      font-size: 0.88rem;
+      color: #555;
+      line-height: 1.55;
+    }
+
+    .step-pc {
+      font-size: 0.75rem;
+      color: #aaa;
+      margin-top: 4px;
+      display: block;
+    }
+
+    @media (pointer: coarse) {
+      .step-pc { display: none; }
+    }
+
+    kbd {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: monospace;
+      font-size: 0.82em;
+      color: #555;
+    }
+
+    /* ── Difficulty guide ── */
+    .diff-guide {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    @media (min-width: 500px) {
+      .diff-guide { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .diff-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .diff-card .diff-badge {
+      align-self: flex-start;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .diff-card .diff-pieces {
+      font-size: 0.82rem;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    /* ── Puzzle list ── */
     .puzzle-group { display: flex; flex-direction: column; gap: 8px; }
 
     .puzzle-card {
@@ -99,28 +296,284 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 200px;
+      height: 160px;
       font-size: 1rem;
       color: #aaa;
+    }
+
+    /* ── About ── */
+    .about {
+      margin-top: 40px;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      padding: 28px 28px 28px 32px;
+      border-left: 4px solid #1e1e1e;
+    }
+
+    .about-text {
+      font-size: clamp(0.95rem, 3vw, 1.05rem);
+      line-height: 1.85;
+      color: #333;
+    }
+
+    .about-text p + p { margin-top: 1em; }
+
+    .about-sig {
+      margin-top: 16px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #999;
+      letter-spacing: 0.06em;
+    }
+
+    /* ── Divider ── */
+    .section-divider {
+      border: none;
+      border-top: 1px solid #e8e8e8;
+      margin: 8px 0;
+    }
+
+    /* ── Puzzle count ── */
+    .puzzle-count {
+      font-size: 0.82rem;
+      color: #aaa;
+      margin-left: 8px;
+      font-weight: 500;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 48px;
+      border-top: 1px solid #e8e8e8;
+      padding: 28px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .footer-links a {
+      font-size: 0.83rem;
+      color: #888;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-links a:hover { color: #333; }
+
+    .footer-copy {
+      font-size: 0.75rem;
+      color: #bbb;
     }
   </style>
 </head>
 <body>
+
   <header>
     <div class="brand-group">
       <span class="brand-text">SoChi BLOCKS</span>
       <span class="brand-tagline">think in 3D</span>
     </div>
+    <button class="lang-toggle" onclick="toggleLang()" id="lang-btn">EN</button>
   </header>
 
-  <main id="root">
-    <div class="status">Loading puzzles...</div>
-  </main>
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <div class="hero-title">SoChi BLOCKS</div>
+    <div class="hero-tagline">think in 3D</div>
+    <p class="hero-desc ja">
+      ペントミノを使った 3D パズル。<br>
+      空いた空間にピースをはめて、空間認識力と<br class="sp-br">論理的思考力を鍛えよう。
+    </p>
+    <p class="hero-desc en">
+      A 3D pentomino puzzle game.<br>
+      Fill the missing spaces by rotating and placing pieces.<br>
+      Train your spatial reasoning and logical thinking.
+    </p>
+    <a class="hero-cta" href="#puzzles">
+      <span class="ja">パズルを選ぶ ↓</span>
+      <span class="en">Choose a Puzzle ↓</span>
+    </a>
+  </div>
+
+  <div class="content">
+
+    <!-- ── How to play ── -->
+    <div class="section-title ja">遊び方</div>
+    <div class="section-title en">How to Play</div>
+
+    <div class="steps">
+      <!-- Step 1 -->
+      <div class="step-card">
+        <div class="step-icon">👆</div>
+        <div class="step-num ja">ステップ 1</div>
+        <div class="step-num en">Step 1</div>
+        <div class="step-head ja">ピースを選ぶ</div>
+        <div class="step-head en">Select a Piece</div>
+        <div class="step-body ja">画面下のトレイから、置きたいピースをタップして選びます。</div>
+        <div class="step-body en">Tap any piece in the tray at the bottom to select it.</div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step-card">
+        <div class="step-icon">🔄</div>
+        <div class="step-num ja">ステップ 2</div>
+        <div class="step-num en">Step 2</div>
+        <div class="step-head ja">向きを変える</div>
+        <div class="step-head en">Rotate It</div>
+        <div class="step-body ja">
+          <kbd>←</kbd> <kbd>→</kbd> ボタンで回転させて、空きスペースに合う向きを探そう。
+          <span class="step-pc">PC: <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> キーでも回転できます</span>
+        </div>
+        <div class="step-body en">
+          Tap <kbd>←</kbd> <kbd>→</kbd> to rotate the piece and find the right fit.
+          <span class="step-pc">PC: Use <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> keys to rotate</span>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step-card">
+        <div class="step-icon">✅</div>
+        <div class="step-num ja">ステップ 3</div>
+        <div class="step-num en">Step 3</div>
+        <div class="step-head ja">配置して確定</div>
+        <div class="step-head en">Place It</div>
+        <div class="step-body ja">
+          <kbd>←</kbd> <kbd>→</kbd> で位置を選び、<kbd>Set</kbd> をタップして確定。全ピースを埋めたらクリア！
+          <span class="step-pc">PC: 3D 上をクリックしても配置できます</span>
+        </div>
+        <div class="step-body en">
+          Use <kbd>←</kbd> <kbd>→</kbd> to choose a position, then tap <kbd>Set</kbd>. Fill all pieces to win!
+          <span class="step-pc">PC: You can also click directly on the 3D grid</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Difficulty guide ── -->
+    <div class="section-title ja">難易度</div>
+    <div class="section-title en">Difficulty</div>
+
+    <div class="diff-guide">
+      <div class="diff-card">
+        <span class="diff-badge diff-easy">Easy</span>
+        <div class="diff-pieces ja">ピース 2 個</div>
+        <div class="diff-pieces en">2 pieces missing</div>
+      </div>
+      <div class="diff-card">
+        <span class="diff-badge diff-medium">Medium</span>
+        <div class="diff-pieces ja">ピース 4 個</div>
+        <div class="diff-pieces en">4 pieces missing</div>
+      </div>
+      <div class="diff-card">
+        <span class="diff-badge diff-hard">Hard</span>
+        <div class="diff-pieces ja">ピース 6 個</div>
+        <div class="diff-pieces en">6 pieces missing</div>
+      </div>
+      <div class="diff-card">
+        <span class="diff-badge" style="background:#f3e8ff;color:#6b21a8;">Hardest</span>
+        <div class="diff-pieces ja">ピース 8 個</div>
+        <div class="diff-pieces en">8 pieces missing</div>
+      </div>
+    </div>
+
+    <!-- ── How to play video link ── -->
+    <div style="margin-top:8px;margin-bottom:4px;text-align:center;">
+      <a href="./how-to-play.html" style="
+        display:inline-flex;align-items:center;gap:8px;
+        background:#1e1e1e;color:#fff;text-decoration:none;
+        padding:12px 28px;border-radius:50px;
+        font-size:0.92rem;font-weight:700;letter-spacing:0.04em;
+        transition:opacity 0.2s,transform 0.15s;
+      " onmouseover="this.style.opacity='0.82'" onmouseout="this.style.opacity='1'">
+        <span>▶</span>
+        <span class="ja">動画で遊び方を見る</span>
+        <span class="en">Watch How to Play</span>
+      </a>
+    </div>
+
+    <!-- ── About ── -->
+    <div class="about">
+      <div class="about-text ja">
+        <p>子どもの頃、よく行っていた本屋さんにペントミノのパズルがあった。<br>
+        2D は解けても、3D だけはどうしても解けなかった。</p>
+        <p>大人になって、20 年越しにやっと解けた。<br>
+        あの瞬間の快感が忘れられなくて、作りました。</p>
+        <p>あなたにも、ぜひ。</p>
+      </div>
+      <div class="about-text en">
+        <p>When I was a kid, my local bookstore had a pentomino puzzle.<br>
+        I could always crack the 2D version — but 3D? Never once.</p>
+        <p>Twenty years later, I finally solved it.<br>
+        That feeling was too good to keep to myself.</p>
+        <p>Now it's your turn.</p>
+      </div>
+      <div class="about-sig">— SoChi BLOCKS</div>
+    </div>
+
+    <!-- ── Puzzle list ── -->
+    <hr class="section-divider" style="margin-top:36px;" />
+    <div class="section-title" id="puzzles" style="margin-top:28px;">
+      <span class="ja">パズル一覧</span>
+      <span class="en">Puzzles</span>
+      <span class="puzzle-count" id="puzzle-count"></span>
+    </div>
+    <div id="puzzle-root">
+      <div class="status">
+        <span class="ja">読み込み中...</span>
+        <span class="en">Loading puzzles...</span>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <footer>
+    <div class="footer-links">
+      <a href="./how-to-play.html">
+        <span class="ja">遊び方</span>
+        <span class="en">How to Play</span>
+      </a>
+    </div>
+    <div class="footer-copy">© 2026 SoChi BLOCKS</div>
+  </footer>
 
   <script>
     const VIEWER = './viewer.html';
     const DIFF_CLASS = { Easy: 'diff-easy', Medium: 'diff-medium', Hard: 'diff-hard' };
 
+    // ── Language toggle ──────────────────────────────────────────
+    const LANG_KEY = 'sochi_lang';
+
+    function detectLang() {
+      const stored = localStorage.getItem(LANG_KEY);
+      if (stored === 'en' || stored === 'ja') return stored;
+      return navigator.language.startsWith('ja') ? 'ja' : 'en';
+    }
+
+    function applyLang(lang) {
+      document.documentElement.setAttribute('data-lang', lang);
+      const btn = document.getElementById('lang-btn');
+      if (btn) btn.textContent = lang === 'ja' ? 'EN' : 'JP';
+    }
+
+    function toggleLang() {
+      const current = document.documentElement.getAttribute('data-lang') || 'ja';
+      const next = current === 'ja' ? 'en' : 'ja';
+      localStorage.setItem(LANG_KEY, next);
+      applyLang(next);
+    }
+
+    // Init language
+    applyLang(detectLang());
+
+    // ── Puzzle list ──────────────────────────────────────────────
     function diffBadge(d) {
       const cls = DIFF_CLASS[d] || 'diff-other';
       return `<span class="diff-badge ${cls}">${d || '—'}</span>`;
@@ -129,41 +582,49 @@
     function renderGroup(date, puzzles) {
       const label = date || 'Unknown';
       const items = puzzles.map(p => {
-        const removed = p.removed && p.removed.length
+        const removedJa = p.removed && p.removed.length
+          ? `ピース: ${p.removed.join(', ')}`
+          : '全ピース表示';
+        const removedEn = p.removed && p.removed.length
           ? `Missing: ${p.removed.join(', ')}`
-          : 'Full solve';
+          : 'Full display';
         const url = `${VIEWER}?puzzle_id=${p.id}`;
         return `
           <a class="puzzle-card" href="${url}">
             ${diffBadge(p.difficulty)}
             <div class="card-info">
               <div class="card-id">${p.id}</div>
-              <div class="card-removed">${removed}</div>
+              <div class="card-removed ja">${removedJa}</div>
+              <div class="card-removed en">${removedEn}</div>
             </div>
             <span class="card-arrow">&#8250;</span>
           </a>`;
       }).join('');
-      return `<h2>${label}</h2><div class="puzzle-group">${items}</div>`;
+      return `<h2 class="section-title" style="margin-top:20px;margin-bottom:8px;">${label}</h2>
+              <div class="puzzle-group">${items}</div>`;
     }
 
     fetch('./puzzles/manifest.json')
       .then(r => { if (!r.ok) throw new Error('manifest not found'); return r.json(); })
       .then(data => {
+        const root = document.getElementById('puzzle-root');
         if (!data.length) {
-          document.getElementById('root').innerHTML = '<div class="status">No puzzles published yet.</div>';
+          root.innerHTML = '<div class="status"><span class="ja">パズルはまだ公開されていません。</span><span class="en">No puzzles published yet.</span></div>';
           return;
         }
-        // Group by date, newest first
         const grouped = {};
         for (const p of data) {
           const d = p.date || '';
           (grouped[d] = grouped[d] || []).push(p);
         }
         const dates = Object.keys(grouped).sort().reverse();
-        document.getElementById('root').innerHTML = dates.map(d => renderGroup(d, grouped[d])).join('');
+        root.innerHTML = dates.map(d => renderGroup(d, grouped[d])).join('');
+        const countEl = document.getElementById('puzzle-count');
+        if (countEl) countEl.textContent = `${data.length}`;
       })
       .catch(e => {
-        document.getElementById('root').innerHTML = `<div class="status">Error: ${e.message}</div>`;
+        document.getElementById('puzzle-root').innerHTML =
+          `<div class="status">Error: ${e.message}</div>`;
       });
   </script>
 </body>

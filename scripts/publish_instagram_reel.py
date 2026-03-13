@@ -70,17 +70,23 @@ def post_reel(puzzle_id: str, asset_dir: Path, base_url: str) -> bool:
     print(f"  Caption: {caption_path.name}")
     print(f"  URL:     {video_url}")
 
-    # Cover image: use 3d_x.png as the Reel thumbnail
-    cover_url = None
+    # Cover image: use 3d_x.png as the Reel thumbnail (required)
     cover_img = asset_dir / "3d_x.png"
-    if cover_img.exists():
-        # Derive public URL from asset_dir relative to docs/
-        parts = asset_dir.resolve().parts
-        if "docs" in parts:
-            idx = parts.index("docs")
-            rel_url = "/".join(parts[idx + 1:]) + "/3d_x.png"
-            cover_url = f"{base_url}/{rel_url}".replace("//", "/").replace("https:/", "https://")
-            print(f"  Cover:   {cover_img.name}  → {cover_url}")
+    if not cover_img.exists():
+        print(f"{_LOG} ERROR: Cover image not found: {cover_img}")
+        print(f"  Run capture_3d_images first to generate 3d_x.png")
+        return False
+
+    cover_url = None
+    parts = asset_dir.resolve().parts
+    if "docs" in parts:
+        idx = parts.index("docs")
+        rel_url = "/".join(parts[idx + 1:]) + "/3d_x.png"
+        cover_url = f"{base_url}/{rel_url}".replace("//", "/").replace("https:/", "https://")
+        print(f"  Cover:   {cover_img.name}  → {cover_url}")
+    else:
+        print(f"{_LOG} WARN: asset_dir is outside docs/; cover_url cannot be derived — posting without cover")
+        print(f"  asset_dir: {asset_dir.resolve()}")
 
     # Step 1: Create Reels container
     api_url = f"https://graph.facebook.com/v21.0/{ig_id}/media"

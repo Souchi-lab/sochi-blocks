@@ -802,6 +802,19 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   Tutorial Video モード — ヘッダー非表示、UI は表示
+   (?autoplay=1&video_mode=tutorial のとき .tutorial-video-mode が付く)
+   ══════════════════════════════════════════════════════════ */
+
+.tutorial-video-mode .app-header {
+  display: none;
+}
+
+.tutorial-video-mode .app-body {
+  height: 100dvh;
+}
+
+/* ══════════════════════════════════════════════════════════
    SNS モード — 動画撮影用フルコントロールレイアウト
    (?autoplay=1&sns=1 のとき .sns-mode が付く)
    ══════════════════════════════════════════════════════════ */
@@ -818,6 +831,18 @@
 .sns-mode .viewer-area {
   flex: 1;
   height: 100%;
+}
+
+/* ── SNS レイアウト定数 ──────────────────────────────────────────
+   Instagram Reels の UI 被り対策:
+     Top safe zone  : ~100px (ステータスバー・戻るボタン・ユーザー名)
+     Bottom safe zone: ~200px (キャプション・アクションバー)
+   下記の値を変えるだけで全体が動く。
+   SNS_HOOK_TOP   : フックテキスト起点 (画面高 1920px の約 7%)
+   SNS_MISSION_TOP: ミッションバー起点 (フック直下)
+   ──────────────────────────────────────────────────────────────── */
+:root {
+  --sns-hook-top: 200px;   /* Instagram top UI 回避 + 少し下目 (was 52px→140px→200px) */
 }
 
 /* ── SNS オーバーレイ本体 ─────────────────────────────── */
@@ -844,7 +869,7 @@
 /* ── フックテキスト (上部中央) ──────────────────────────── */
 .sns-hook-text {
   position: absolute;
-  top: 52px;
+  top: var(--sns-hook-top);
   left: 0;
   right: 0;
   text-align: center;
@@ -883,6 +908,38 @@
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
 }
 
+/* ── ミッションピース横並びバー (画面下部・常時表示) ────────
+   SNS_PIECE_BAR_BOTTOM : dots の上に乗る位置
+   cellSize=16 × 最大5セル ≈ 85px / ピース。8ピースでも 1080px に収まる
+   ──────────────────────────────────────────────────────── */
+.sns-piece-bar {
+  position: absolute;
+  bottom: 120px;          /* dots (64px) の上に余裕を持たせる */
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 14px;
+  padding: 14px 24px 16px;
+  background: rgba(0, 0, 0, 0.50);
+}
+
+.sns-piece-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.sns-piece-label {
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
 /* ── ドットインジケーター (下部中央) ───────────────────── */
 .sns-dots {
   position: absolute;
@@ -893,6 +950,7 @@
   justify-content: center;
   gap: 10px;
 }
+
 
 .sns-dot {
   display: inline-block;

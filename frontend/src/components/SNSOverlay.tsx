@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { SITE_URL, SITE_NAME } from '../constants/siteConfig';
+import { getPieceColor } from '../constants/pieceColors';
+import { PieceShapeMini } from './PieceShapeMini';
 
 // ── 型定義 ────────────────────────────────────────────────────────
 
@@ -42,7 +44,13 @@ const INITIAL: OverlayState = {
 
 // ── メインコンポーネント ──────────────────────────────────────────
 
-export function SNSOverlay({ videoMode = 'full_play' }: { videoMode?: 'full_play' | 'teaser' }) {
+export function SNSOverlay({
+    videoMode = 'full_play',
+    removedPieces = [],
+}: {
+    videoMode?: 'full_play' | 'teaser';
+    removedPieces?: string[];
+}) {
     const [s, setS] = useState<OverlayState>(INITIAL);
     const starsTimerRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -180,6 +188,20 @@ export function SNSOverlay({ videoMode = 'full_play' }: { videoMode?: 'full_play
                 <div className={`sns-hook-text${phase === 'intro' ? ' sns-hook-text--intro' : ''}`}>
                     <span className="sns-hook-main">{pieceLabel}</span>
                     {pieceIdx === 0 && phase !== 'intro' && <span className="sns-hook-sub">{label}</span>}
+                </div>
+            )}
+
+            {/* ── ミッションピース横並びバー (画面下部・常時表示) ────── */}
+            {showMain && removedPieces.length > 0 && (
+                <div className="sns-piece-bar">
+                    {removedPieces.map(p => (
+                        <div key={p} className="sns-piece-card">
+                            <PieceShapeMini piece={p} cellSize={16} />
+                            <span className="sns-piece-label" style={{ color: getPieceColor(p) }}>
+                                {p}
+                            </span>
+                        </div>
+                    ))}
                 </div>
             )}
 

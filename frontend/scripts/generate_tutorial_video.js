@@ -1,3 +1,24 @@
+/**
+ * generate_tutorial_video.js
+ *
+ * SoChi BLOCKS チュートリアル動画（約30秒）を Playwright で録画する。
+ * video_mode=tutorial を使い、TutorialVideoOverlay を通じてステップテキストを表示する。
+ *
+ * 使い方:
+ *   node frontend/scripts/generate_tutorial_video.js [puzzle_id] [--lang ja|en]
+ *
+ * 例:
+ *   node frontend/scripts/generate_tutorial_video.js 20260313_001
+ *   node frontend/scripts/generate_tutorial_video.js 20260313_001 --lang en
+ *
+ * 事前準備:
+ *   npm run dev --prefix frontend  ← localhost:5173 を起動しておく
+ *
+ * 出力:
+ *   frontend/public/sns_videos/tutorial_ja.mp4  (または tutorial_en.mp4)
+ *   docs/sns_videos/tutorial_ja.mp4             (GitHub Pages 用にコピー)
+ */
+
 import { chromium } from 'playwright';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
@@ -8,147 +29,129 @@ import { fileURLToPath } from 'url';
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-/**
- * Simulate a smooth mouse drag on the canvas to orbit the 3D viewer.
- * OrbitControls listens to real DOM events, so Playwright mouse drag works directly.
- */
-async function smoothOrbit(page, fromX, fromY, toX, toY, steps = 40) {
-    await page.mouse.move(fromX, fromY);
-    await page.mouse.down();
-    for (let i = 1; i <= steps; i++) {
-        const x = fromX + (toX - fromX) * i / steps;
-        const y = fromY + (toY - fromY) * i / steps;
-        await page.mouse.move(x, y);
-        await page.waitForTimeout(30); // ~30fps feel
-    }
-    await page.mouse.up();
-}
+const __dirname  = path.dirname(__filename);
 
 async function generateTutorialVideo() {
-    const puzzleId = process.argv[2] || '20260226_001';
+    const rawArgs    = process.argv.slice(2);
+    const positional = rawArgs.filter(a => !a.startsWith('--'));
 
-    // delay=4000 gives the autoplay a 4-second head start pause
-    // during which we perform the camera orbit demo
-    const ORBIT_DURATION_MS = 4000;
-    const url = `http://localhost:5173/viewer.html?puzzle_id=${puzzleId}&autoplay=1&delay=${ORBIT_DURATION_MS}`;
+    // puzzle_id
+    const puzzleId = positional[0] || '20260313_001';
 
-    // Output goes to docs/how_to_play.mp4 (project root docs folder)
-    const docsDir = path.join(__dirname, '..', '..', 'docs');
-    const tmpDir = path.join(__dirname, '..', 'public', 'sns_videos');
+    // --lang ja|en
+    const langIdx = rawArgs.indexOf('--lang');
+    const lang = langIdx >= 0 ? (rawArgs[langIdx + 1] ?? 'ja') : 'ja';
+    if (lang !== 'ja' && lang !== 'en') {
+        console.error(`❌ --lang must be "ja" or "en", got: "${lang}"`);
+        process.exit(1);
+    }
 
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-    if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
+    // tutorial モード URL (sns=1 不要: tutorial は実際のゲームUIを表示する)
+    const url = [
+        `http://localhost:5173/viewer.html`,
+        `?puzzle_id=${puzzleId}`,
+        `&autoplay=1`,
+        `&video_mode=tutorial`,
+        `&lang=${lang}`,
+    ].join('');
 
-    const webmPath = path.join(tmpDir, `tutorial_${puzzleId}.webm`);
-    const mp4Path  = path.join(docsDir, 'how_to_play.mp4');
+    const outputDir = path.join(__dirname, '..', 'public', 'sns_videos');
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-    console.log(`🎬 Generating tutorial video for puzzle: ${puzzleId}`);
+    const baseName = `tutorial_${lang}`;
+    const webmPath = path.join(outputDir, `${baseName}.webm`);
+    const mp4Path  = path.join(outputDir, `${baseName}.mp4`);
 
-    // Wide viewport so sidebar (rotation cards, cursor nav) is fully visible
+    console.log(`🎬 Tutorial video  puzzle=${puzzleId}  lang=${lang}`);
+    console.log(`🌐 ${url}`);
+
     const browser = await chromium.launch({ headless: true });
+
+    // モバイルビューポート — 実際のスマホ UI を録画する
     const context = await browser.newContext({
-        viewport: { width: 900, height: 650 },
+        viewport: { width: 390, height: 844 },
         recordVideo: {
-            dir: tmpDir,
-            size: { width: 900, height: 650 },
+            dir: outputDir,
+            size: { width: 390, height: 844 },
         },
     });
 
     const page = await context.newPage();
+    const t0 = Date.now();
+    const ts = () => `+${((Date.now() - t0) / 1000).toFixed(2)}s`;
 
     page.on('console', msg => {
-        if (msg.text().includes('[AutoPlayer]')) console.log(msg.text());
+        const text = msg.text();
+        if (text.includes('[AutoPlayer]') || text.includes('[Tutorial]')) {
+            console.log(`${ts()} ${text}`);
+        }
     });
 
-    console.log(`🌐 Navigating to ${url}`);
     await page.goto(url);
 
-    // ── Camera orbit demo ────────────────────────────────────────────
-    // Wait for the 3D canvas to be ready (WebGL initialized)
-    console.log('🎥 Waiting for 3D canvas...');
-    await page.waitForSelector('.viewer-area canvas');
-    await page.waitForTimeout(800); // let WebGL settle
+    console.log(`${ts()} ⏳ Waiting for .victory-screen-done ...`);
 
-    // Get the viewer-area bounding box (left panel only, not sidebar)
-    const viewerArea = page.locator('.viewer-area').first();
-    const box = await viewerArea.boundingBox();
-
-    if (box) {
-        const cx = box.x + box.width / 2;
-        const cy = box.y + box.height / 2;
-
-        console.log('🔄 Performing camera orbit demo...');
-
-        // Sweep 1: slow horizontal orbit (left → right) — shows the 3D depth
-        await smoothOrbit(page, cx - 120, cy + 10, cx + 80, cy - 20, 50);
-        await page.waitForTimeout(400);
-
-        // Sweep 2: diagonal — shows the stacked layers (top-down angle)
-        await smoothOrbit(page, cx + 40, cy + 80, cx - 40, cy - 60, 40);
-        await page.waitForTimeout(400);
-
-        // Sweep 3: gentle return orbit to a natural viewing angle
-        await smoothOrbit(page, cx - 40, cy - 20, cx + 30, cy + 10, 30);
-        await page.waitForTimeout(400);
-
-        console.log('✅ Camera orbit done. Waiting for autoplay to start...');
-    } else {
-        console.warn('⚠️  Could not find .viewer-area — skipping camera orbit.');
-    }
-
-    // ── Wait for autoplay to solve the puzzle ────────────────────────
-    console.log('⏳ Waiting for puzzle to be solved...');
+    // tutorial は約30秒なので 120秒でタイムアウト
     try {
-        await page.waitForSelector('.victory-card', { timeout: 300000 });
+        await page.waitForSelector('.victory-screen-done', { timeout: 120000 });
     } catch {
-        console.error('❌ Puzzle was not solved within 300s.');
+        console.error('❌ .victory-screen-done not found within 120s');
         await context.close();
         await browser.close();
         process.exit(1);
     }
 
-    // Linger on the victory screen a moment
-    await page.waitForTimeout(3000);
+    console.log(`${ts()} ✅ victory-screen-done detected`);
+    // CTA アニメーションが落ち着くまで待つ
+    await page.waitForTimeout(2500);
 
-    console.log('✅ Puzzle solved. Saving video...');
-    const videoPath = await page.video().path();
+    const videoPath = await page.video()?.path();
     await context.close();
     await browser.close();
 
-    if (fs.existsSync(webmPath)) fs.unlinkSync(webmPath);
-    fs.renameSync(videoPath, webmPath);
-    console.log(`🎥 Raw WebM: ${webmPath}`);
-
-    // Convert to MP4
-    console.log('🔄 Converting to MP4...');
-    await new Promise((resolve, reject) => {
-        ffmpeg(webmPath)
-            .outputOptions([
-                '-pix_fmt yuv420p',
-                '-c:v libx264',
-                '-crf 22',
-                '-preset medium',
-            ])
-            .save(mp4Path)
-            .on('end', () => {
-                console.log(`✅ Saved: ${mp4Path}`);
-                resolve(undefined);
-            })
-            .on('error', (err) => {
-                console.error('❌ Conversion error:', err);
-                reject(err);
-            });
-    });
-
-    // Clean up temp WebM
-    if (fs.existsSync(webmPath)) {
-        fs.unlinkSync(webmPath);
-        console.log('🧹 Cleaned up temporary WebM.');
+    if (!videoPath) {
+        console.error('❌ Failed to get video path from Playwright.');
+        process.exit(1);
     }
 
-    console.log('🎉 Tutorial video ready: docs/how_to_play.mp4');
+    if (fs.existsSync(webmPath)) fs.unlinkSync(webmPath);
+    fs.renameSync(videoPath, webmPath);
+    console.log(`🎥 WebM saved: ${webmPath}`);
+
+    console.log('🔄 Converting to MP4...');
+    ffmpeg(webmPath)
+        .outputOptions([
+            '-pix_fmt yuv420p',
+            '-c:v libx264',
+            '-crf 22',
+            '-preset superfast',
+        ])
+        .save(mp4Path)
+        .on('end', () => {
+            console.log(`✅ MP4 saved: ${mp4Path}`);
+
+            if (fs.existsSync(webmPath)) {
+                fs.unlinkSync(webmPath);
+                console.log('🧹 Cleaned up WebM.');
+            }
+
+            // docs/sns_videos/ にコピー (GitHub Pages 用)
+            const docsDir = path.join(__dirname, '..', '..', 'docs', 'sns_videos');
+            if (fs.existsSync(docsDir)) {
+                const docsMp4 = path.join(docsDir, `${baseName}.mp4`);
+                fs.copyFileSync(mp4Path, docsMp4);
+                console.log(`📂 Synced to docs: ${docsMp4}`);
+            }
+
+            console.log('\n🎉 Done!');
+            console.log(`   JP: node frontend/scripts/generate_tutorial_video.js ${puzzleId} --lang ja`);
+            console.log(`   EN: node frontend/scripts/generate_tutorial_video.js ${puzzleId} --lang en`);
+            process.exit(0);
+        })
+        .on('error', err => {
+            console.error('❌ Conversion error:', err);
+            process.exit(1);
+        });
 }
 
 generateTutorialVideo().catch(console.error);
