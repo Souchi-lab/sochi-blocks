@@ -920,10 +920,10 @@
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 14px 24px 16px;
-  background: rgba(0, 0, 0, 0.50);
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .sns-piece-card {
@@ -1502,7 +1502,7 @@
 
 .sns-tap-persistent {
   position: absolute;
-  bottom: 118px;
+  bottom: 350px;  /* sns-piece-bar (bottom:120px, height≈215px) の直上 */
   left: 50%;
   transform: translateX(-50%);
   font-size: clamp(20px, 3.8vw, 34px);

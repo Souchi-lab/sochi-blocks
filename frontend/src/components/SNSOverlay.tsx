@@ -196,7 +196,7 @@ export function SNSOverlay({
                 <div className="sns-piece-bar">
                     {removedPieces.map(p => (
                         <div key={p} className="sns-piece-card">
-                            <PieceShapeMini piece={p} cellSize={16} />
+                            <PieceShapeMini piece={p} cellSize={32} />
                             <span className="sns-piece-label" style={{ color: getPieceColor(p) }}>
                                 {p}
                             </span>
