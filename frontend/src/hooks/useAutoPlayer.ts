@@ -3,69 +3,41 @@ import type { PuzzleData } from '../types/puzzle';
 import type { GameState } from './useGameState';
 import { getPieceShape } from '../constants/pieceColors';
 import { validAnchors, placementCells, uniqueRotationIndices } from '../utils/placement';
-import { rotateIndex } from '../utils/rotations';
 import type { Vec3 } from '../utils/rotations';
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-const axes: ('X' | 'Y' | 'Z')[] = ['X', 'Y', 'Z'];
 
 // ── SNS モード設定 ────────────────────────────────────────────────
 
 interface DiffConfig {
     label: 'EASY' | 'MEDIUM' | 'HARD' | 'EXTREME';
     hook: string;
-    thinkCount: number;      // 思案ローテーション数 (多いほど迷いが増す)
-    misplaceAt: Set<number>; // ミスプレイスするピースインデックス (0始まり)
+    thinkCount: number;
+    misplaceAt: Set<number>;
 }
 
 function getSNSDiff(n: number, hookOverride?: string): DiffConfig {
     const hook = hookOverride ?? '';
-    if (n <= 2) return {
-        label: 'EASY',
-        hook: hook || 'Can you solve this?',
-        thinkCount: 3,
-        misplaceAt: new Set(),
-    };
-    if (n <= 4) return {
-        label: 'MEDIUM',
-        hook: hook || 'Think you can solve this?',
-        thinkCount: 8,
-        misplaceAt: new Set([1]),
-    };
-    // 6 pieces: HARD
-    if (n <= 6) return {
-        label: 'HARD',
-        hook: hook || 'Only the sharpest can solve this.',
-        thinkCount: 10,
-        misplaceAt: new Set([1, 3]),
-    };
-    // 7-8 pieces: EXTREME
-    return {
-        label: 'EXTREME',
-        hook: hook || "This one's nearly impossible...",
-        thinkCount: 10,
-        misplaceAt: new Set([1, 3, 5]),
-    };
+    if (n <= 2) return { label: 'EASY',    hook: hook || 'Can you solve this?',             thinkCount: 3,  misplaceAt: new Set() };
+    if (n <= 4) return { label: 'MEDIUM',  hook: hook || 'Think you can solve this?',        thinkCount: 8,  misplaceAt: new Set([1]) };
+    if (n <= 6) return { label: 'HARD',    hook: hook || 'Only the sharpest can solve this.', thinkCount: 10, misplaceAt: new Set([1, 3]) };
+    return              { label: 'EXTREME', hook: hook || "This one's nearly impossible...",  thinkCount: 10, misplaceAt: new Set([1, 3, 5]) };
 }
 
 // SNS モード固定タイミング (ms)
-// ★ ステップ316時点の「早送り」設定 (EXTREME ではない)
 const SNS = {
-    select: 300,        // ピース選択後の間
-    thinkPerRot: 160,   // ローテーション1回あたり
-    thinkFinal: 250,    // 正解ローテーション後の間
-    wrongCursor: 220,   // 間違いカーソル位置を見せる時間
-    misplacePause: 1000, // ★大げさ: 誤配置を見せる時間 (1秒!)
-    retractPause: 700,   // ★大げさ: 引き剥がし後の間
-    snapPause: 100,      // 正解 snap 後の間
-    settle: 400,        // 配置後の静止時間
-    victoryHold: 2500,  // VICTORY 表示後の待機
+    select: 300,
+    thinkPerRot: 160,
+    thinkFinal: 250,
+    wrongCursor: 220,
+    misplacePause: 1000,
+    retractPause: 700,
+    snapPause: 100,
+    settle: 400,
+    victoryHold: 2500,
 };
 
 // Teaser モード設定 (目標: 6〜8秒)
-// drama: i=0 (ミスプレイス演出あり・短縮版)
-// fast:  中間ピース (超高速・ガチャガチャ感)
-// last:  最終ピース (短縮版・高品質フィニッシュ)
 const TEASER = {
     drama:  { select: 150, thinkCount: 3,  thinkPerRot: 60,  thinkFinal: 100, cursorFinal: 60,  settle: 150 },
     fast:   { select: 20,  thinkCount: 2,  thinkPerRot: 10,  thinkFinal: 15,  cursorFinal: 20,  settle: 25  },
@@ -75,6 +47,19 @@ const TEASER = {
     retractPause:  320,
     recovery:      100,
     victoryHold:  1200,
+};
+
+// Tutorial モード設定 (目標: 約30秒・分かりやすさ優先)
+const TUTORIAL = {
+    introHold:    2200,  // タイトル表示時間
+    problemHold:  1400,  // 問題提示表示時間
+    select:        900,  // ピース選択後の間
+    thinkCount:      7,  // 回転数 (向きの多様性を見せる)
+    thinkPerRot:   370,  // 各回転の表示時間
+    thinkFinal:    750,  // 正解回転後の間
+    cursorFinal:   550,  // カーソル確定後の間
+    fitHold:       800,  // Fit! フラッシュの表示時間
+    victoryHold:  3500,  // Victory CTA 表示時間
 };
 
 function snsDispatch(phase: string, detail: Record<string, unknown> = {}) {
@@ -93,7 +78,6 @@ export function useAutoPlayer({
     gameState,
     selectPiece,
     placePiece,
-    rotate,
     setRotation,
     setCursorIndex,
     wrongClick,
@@ -102,22 +86,19 @@ export function useAutoPlayer({
 }: {
     autoplay: boolean;
     snsMode?: boolean;
-    snsVideoMode?: 'full_play' | 'teaser';
+    snsVideoMode?: 'full_play' | 'teaser' | 'tutorial';
     data: PuzzleData | null;
     gameState: GameState;
     selectPiece: (p: string) => void;
     placePiece: (p: string, coords: string[]) => void;
-    rotate: (axis: 'X' | 'Y' | 'Z', dir: 1 | -1) => void;
     setRotation?: (index: number) => void;
     setCursorIndex?: (index: number) => void;
     wrongClick?: (p: string) => void;
     unplacePiece?: (p: string) => void;
-    /** Optional pause (ms) before gameplay starts — allows external camera orbit demos */
     initialDelayMs?: number;
 }) {
     const isPlaying = useRef(false);
 
-    // Live ref to placed cells so async loop can get current state of board
     const placedCellsRef = useRef(gameState.placedCells);
     useEffect(() => {
         placedCellsRef.current = gameState.placedCells;
@@ -129,49 +110,71 @@ export function useAutoPlayer({
         isPlaying.current = true;
 
         const playScenario = async () => {
-            // Allow external camera orbit demo before gameplay starts
             if (initialDelayMs > 0) await sleep(initialDelayMs);
 
             const removedList = [...gameState.removedPieces];
+            // 'F' is gray — always play it last so the video opens with a colorful piece
+            const fIdx = removedList.indexOf('F');
+            if (fIdx !== -1 && fIdx !== removedList.length - 1) {
+                removedList.splice(fIdx, 1);
+                removedList.push('F');
+            }
             const totalPieces = removedList.length;
 
-            // --- SNS モード特有の設定 ---
             const params = new URLSearchParams(window.location.search);
             const hookOverride = params.get('hook') || undefined;
             const diff = getSNSDiff(totalPieces, hookOverride);
+            const lang = (params.get('lang') as 'ja' | 'en') ?? 'ja';
 
-            const isTeaser = snsMode && snsVideoMode === 'teaser';
+            const isTeaser   = snsMode && snsVideoMode === 'teaser';
+            const isTutorial = snsVideoMode === 'tutorial';
 
+            // ── Intro ──────────────────────────────────────────────
             if (snsMode) {
-                console.log(`[AutoPlayer][SNS] ${diff.label} / ${totalPieces} pieces / Misplace: ${[...diff.misplaceAt].join(',')} / mode: ${snsVideoMode} / isTeaser: ${isTeaser} / t=${Date.now()}`);
-                snsDispatch('intro', { label: diff.label, total: totalPieces, hook: diff.hook });
-                await sleep(isTeaser ? 700 : 1000); // Intro pause
+                if (isTutorial) {
+                    snsDispatch('tutorial_intro', { lang });
+                    await sleep(TUTORIAL.introHold);
+                    snsDispatch('tutorial_problem', { total: totalPieces, lang });
+                    await sleep(TUTORIAL.problemHold);
+                } else {
+                    console.log(`[AutoPlayer][SNS] ${diff.label} / ${totalPieces} pieces / mode: ${snsVideoMode}`);
+                    snsDispatch('intro', { label: diff.label, total: totalPieces, hook: diff.hook });
+                    await sleep(isTeaser ? 700 : 1000);
+                }
             }
 
-            // Normal mode duration targets
+            // Normal mode pacing
             const targetTotalMs = 30000;
             const estimatedMsPerPieceWithFullDelay = 15000;
             const pacingMultiplier = Math.max(0.2, Math.min(1.5, targetTotalMs / (totalPieces * estimatedMsPerPieceWithFullDelay)));
 
+            // ── Piece loop ─────────────────────────────────────────
             for (let i = 0; i < totalPieces; i++) {
                 const pieceToPlay = removedList[i];
-                // teaser ロール: drama=最初, fast=中間, last=最後
+
                 const isTeaserDrama = isTeaser && i === 0;
                 const isTeaserLast  = isTeaser && i === totalPieces - 1 && totalPieces > 1;
                 const isTeaserFast  = isTeaser && !isTeaserDrama && !isTeaserLast;
                 const tRole = isTeaserDrama ? TEASER.drama : isTeaserFast ? TEASER.fast : isTeaserLast ? TEASER.last : null;
 
                 if (snsMode) {
-                    const roleTag = isTeaserDrama ? ' [DRAMA]' : isTeaserFast ? ' [FAST]' : isTeaserLast ? ' [LAST]' : '';
-                    console.log(`[AutoPlayer][SNS] Piece ${pieceToPlay} (${i + 1}/${totalPieces})${roleTag} t=${Date.now()}`);
-                    snsDispatch('float', { pieceIdx: i, total: totalPieces, label: diff.label, hook: diff.hook });
-                    // ② 最初の fast ピース開始時に SPEED RUN フラッシュ
-                    if (isTeaserFast && i === 1) snsDispatch('speed_flash');
+                    if (isTutorial) {
+                        snsDispatch('tutorial_select', { pieceIdx: i, total: totalPieces, lang });
+                    } else {
+                        const roleTag = isTeaserDrama ? ' [DRAMA]' : isTeaserFast ? ' [FAST]' : isTeaserLast ? ' [LAST]' : '';
+                        console.log(`[AutoPlayer][SNS] Piece ${pieceToPlay} (${i + 1}/${totalPieces})${roleTag}`);
+                        snsDispatch('float', { pieceIdx: i, total: totalPieces, label: diff.label, hook: diff.hook });
+                        if (isTeaserFast && i === 1) snsDispatch('speed_flash');
+                    }
                 }
 
-                // ------- Step 1: Select the piece -------
+                // ── Select ────────────────────────────────────────
                 selectPiece(pieceToPlay);
-                await sleep(snsMode ? (tRole?.select ?? SNS.select) : 1500 * pacingMultiplier);
+                await sleep(
+                    isTutorial ? TUTORIAL.select :
+                    snsMode    ? (tRole?.select ?? SNS.select) :
+                    1500 * pacingMultiplier
+                );
 
                 const pieceShape = getPieceShape(pieceToPlay) as Vec3[];
                 if (!pieceShape || pieceShape.length === 0) continue;
@@ -180,21 +183,26 @@ export function useAutoPlayer({
                     data.cells.filter(c => c.piece === pieceToPlay).map(c => `${c.x},${c.y},${c.z}`)
                 );
 
-                // ------- Step 2: Thinking (Rotations) -------
+                // ── Rotate ────────────────────────────────────────
+                if (isTutorial) snsDispatch('tutorial_rotate', { lang });
+
                 const uniqueRots = uniqueRotationIndices(pieceShape);
-                const thinkCount = snsMode
-                    ? (tRole?.thinkCount ?? diff.thinkCount)
-                    : (Math.floor(Math.random() * 3) + 5);
-                let currentRot = 0;
+                const thinkCount =
+                    isTutorial ? TUTORIAL.thinkCount :
+                    snsMode    ? (tRole?.thinkCount ?? diff.thinkCount) :
+                    (Math.floor(Math.random() * 3) + 5);
 
                 for (let r = 0; r < thinkCount; r++) {
                     const idx = uniqueRots[Math.floor(Math.random() * uniqueRots.length)];
                     if (setRotation) setRotation(idx);
-                    currentRot = idx;
-                    await sleep(snsMode ? (tRole?.thinkPerRot ?? SNS.thinkPerRot) : (800 + Math.random() * 700) * pacingMultiplier);
+                    await sleep(
+                        isTutorial ? TUTORIAL.thinkPerRot :
+                        snsMode    ? (tRole?.thinkPerRot ?? SNS.thinkPerRot) :
+                        (800 + Math.random() * 700) * pacingMultiplier
+                    );
                 }
 
-                // ------- Step 3: Find Solution -------
+                // ── Find solution ─────────────────────────────────
                 const allEmptyCells = data.cells
                     .filter(c => !placedCellsRef.current.has(`${c.x},${c.y},${c.z}`))
                     .map(c => [c.x, c.y, c.z] as Vec3);
@@ -220,13 +228,15 @@ export function useAutoPlayer({
 
                 if (!solutionCoords || !solutionAnchor) continue;
 
-                // Sync to solution rotation
                 if (setRotation) setRotation(solutionRot);
-                await sleep(snsMode ? (tRole?.thinkFinal ?? SNS.thinkFinal) : 1000 * pacingMultiplier);
+                await sleep(
+                    isTutorial ? TUTORIAL.thinkFinal :
+                    snsMode    ? (tRole?.thinkFinal ?? SNS.thinkFinal) :
+                    1000 * pacingMultiplier
+                );
 
-                // ------- Step 4: MISPLACE Logic (SNS Mode Only) -------
-                // teaser: 必ず i=0 (drama) でミスプレイス / full_play: diff.misplaceAt に従う
-                const isMisplace = snsMode && (isTeaser ? isTeaserDrama : diff.misplaceAt.has(i));
+                // ── Misplace (SNS only, not tutorial) ────────────
+                const isMisplace = snsMode && !isTutorial && (isTeaser ? isTeaserDrama : diff.misplaceAt.has(i));
                 if (isMisplace) {
                     const solutionKeys = new Set(solutionCoords);
                     const mistakenEmptyCells = allEmptyCells.filter(c => !solutionKeys.has(`${c[0]},${c[1]},${c[2]}`));
@@ -242,72 +252,62 @@ export function useAutoPlayer({
                             await sleep(isTeaser ? TEASER.wrongCursor : SNS.wrongCursor);
                         }
 
-                        // WRONG PLACE
                         if (wrongClick) wrongClick(pieceToPlay);
                         snsDispatch('misplace');
                         await sleep(isTeaser ? TEASER.misplacePause : SNS.misplacePause);
 
-                        // RETRACT
                         if (unplacePiece) unplacePiece(pieceToPlay);
                         snsDispatch('misplace_retract');
                         await sleep(isTeaser ? TEASER.retractPause : SNS.retractPause);
 
-                        // Recovery delay
                         await sleep(isTeaser ? TEASER.recovery : 300);
                     }
                 }
 
-                // ------- Step 5: FINAL PLACEMENT -------
+                // ── Place ─────────────────────────────────────────
+                if (isTutorial) snsDispatch('tutorial_place', { lang });
+
                 const finalAnchors = validAnchors(pieceShape, solutionRot, allEmptyCells);
                 const finalKeys = finalAnchors.map(a => `${a[0]},${a[1]},${a[2]}`).sort();
                 const targetIdx = finalKeys.indexOf(`${solutionAnchor[0]},${solutionAnchor[1]},${solutionAnchor[2]}`);
 
                 if (setCursorIndex && targetIdx >= 0) {
                     setCursorIndex(targetIdx);
-                    await sleep(snsMode ? (tRole?.cursorFinal ?? 150) : 500 * pacingMultiplier);
+                    await sleep(
+                        isTutorial ? TUTORIAL.cursorFinal :
+                        snsMode    ? (tRole?.cursorFinal ?? 150) :
+                        500 * pacingMultiplier
+                    );
                 }
 
-                if (snsMode) snsDispatch('snap');
+                if (!isTutorial && snsMode) snsDispatch('snap');
                 placePiece(pieceToPlay, solutionCoords);
 
-                await sleep(snsMode ? (tRole?.settle ?? SNS.settle) : 2000 * pacingMultiplier);
-
-                // B-1: drama piece 配置後にタップヒントを表示 (teaser のみ)
-                if (isTeaserDrama) {
-                    snsDispatch('tap_hint');
-                    await sleep(700);
+                if (isTutorial) {
+                    snsDispatch('tutorial_fit', { pieceIdx: i + 1, total: totalPieces, lang });
+                    await sleep(TUTORIAL.fitHold);
+                } else {
+                    await sleep(snsMode ? (tRole?.settle ?? SNS.settle) : 2000 * pacingMultiplier);
+                    if (isTeaserDrama) {
+                        snsDispatch('tap_hint');
+                        await sleep(700);
+                    }
                 }
             }
 
+            // ── Victory ──────────────────────────────────────────
             if (snsMode) {
-                console.log(`[AutoPlayer][SNS] Done! t=${Date.now()}`);
-                snsDispatch('victory', { total: totalPieces, label: diff.label, hook: diff.hook });
-                await sleep(isTeaser ? TEASER.victoryHold : SNS.victoryHold);
+                if (isTutorial) {
+                    snsDispatch('tutorial_victory', { total: totalPieces, lang });
+                    await sleep(TUTORIAL.victoryHold);
+                } else {
+                    console.log(`[AutoPlayer][SNS] Done!`);
+                    snsDispatch('victory', { total: totalPieces, label: diff.label, hook: diff.hook });
+                    await sleep(isTeaser ? TEASER.victoryHold : SNS.victoryHold);
+                }
             }
         };
 
         playScenario().catch(console.error);
     }, [autoplay, data, gameState.removedPieces, gameState.phase, snsMode]);
-}
-
-// Shortest path helper kept for fallback but SNS uses setRotation directly
-function getRotationPath(start: number, end: number): { axis: 'X' | 'Y' | 'Z', dir: 1 | -1 }[] {
-    if (start === end) return [];
-    const q: { curr: number, path: { axis: 'X' | 'Y' | 'Z', dir: 1 | -1 }[] }[] = [{ curr: start, path: [] }];
-    const seen = new Set([start]);
-    const dirs: (1 | -1)[] = [1, -1];
-    while (q.length > 0) {
-        const { curr, path } = q.shift()!;
-        for (const axis of axes) {
-            for (const dir of dirs) {
-                const next = rotateIndex(curr, axis, dir);
-                if (next === end) return [...path, { axis, dir }];
-                if (!seen.has(next)) {
-                    seen.add(next);
-                    q.push({ curr: next, path: [...path, { axis, dir }] });
-                }
-            }
-        }
-    }
-    return [];
 }

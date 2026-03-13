@@ -40,13 +40,40 @@
     /* Make relative so the close button can be anchored to it */
 }
 
+/* ── Tutorial header row (title + lang toggle) ── */
+.tutorial-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-right: 8px; /* space from close button */
+}
+
 .tutorial-title {
     font-family: 'Arial', sans-serif;
     font-size: 1.5rem;
     font-weight: 800;
     color: #1e1e1e;
-    text-align: center;
     margin: 0;
+}
+
+.tutorial-lang-btn {
+    background: #f0f4f8;
+    color: #2b6cb0;
+    border: 1px solid #c3d9ed;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.80rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.tutorial-lang-btn:hover {
+    background: #e2e8f0;
+    border-color: #a0aec0;
 }
 
 .tutorial-video-container {
@@ -142,4 +169,24 @@ kbd {
 .tutorial-close-btn:hover {
     color: #333;
     background: #f0f0f0;
+}
+
+/* ── Video link ── */
+.tutorial-video-link {
+    display: block;
+    text-align: center;
+    margin-top: 8px;
+    padding: 8px 16px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #2b6cb0;
+    background: #f0f4f8;
+    border: 1px solid #c3d9ed;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+
+.tutorial-video-link:hover {
+    background: #e2e8f0;
 }

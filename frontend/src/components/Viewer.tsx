@@ -12,20 +12,15 @@ type Props = {
   data: PuzzleData;
   capture?: boolean;
   captureAngle?: CaptureAngle;
-  // Game mode props (all optional — capture mode passes none)
   removedPieces?: Set<string>;
-  /** coordKey → pieceId: which cells have been filled */
   placedCells?: Map<string, string>;
-  /** Currently selected piece */
   selectedPiece?: string | null;
-  /** coordKeys of valid click targets for the current rotation */
   validAnchorCells?: Set<string>;
-  /** coordKeys of all cells occupied by any valid placement (ghost preview) */
   ghostCells?: Set<string>;
   onEmptyCellClick?: (coord: Vec3) => void;
   cellFlash?: CellFlash;
   phase?: string;
-  // Legacy prop for answer/capture mode (hides pieces without placeholders)
+  snsMode?: boolean;
   hiddenPieces?: Set<string>;
 };
 
@@ -50,6 +45,7 @@ export const Viewer = ({
   onEmptyCellClick,
   cellFlash,
   hiddenPieces,
+  snsMode = false,
 }: Props) => {
   const cameraPos = useMemo(
     () => calcCameraPosition(data.grid, captureAngle ?? null),
@@ -76,7 +72,17 @@ export const Viewer = ({
         cellFlash={cellFlash}
         hiddenPieces={hiddenPieces}
       />
-      {!capture && <OrbitControls makeDefault enablePan={true} />}
+      {/* SNSモード: ゆっくり水平オービット / 通常: 手動OrbitControls */}
+      {!capture && (
+        <OrbitControls
+          makeDefault
+          enablePan={!snsMode}
+          enableZoom={!snsMode}
+          enableRotate={!snsMode}
+          autoRotate={snsMode}
+          autoRotateSpeed={36.0}
+        />
+      )}
     </Canvas>
   );
 };

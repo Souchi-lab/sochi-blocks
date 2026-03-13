@@ -54,12 +54,14 @@ _DIFFICULTY_LABELS = {
     "a1b2c3d4-0001-4000-8000-000000000001": "Easy",
     "a1b2c3d4-0002-4000-8000-000000000002": "Medium",
     "a1b2c3d4-0003-4000-8000-000000000003": "Hard",
+    "a1b2c3d4-0004-4000-8000-000000000004": "Hardest",
 }
 
 DIFFICULTY_MAP = {
-    "easy":   {"remove": 2, "label": "Easy",   "id": "a1b2c3d4-0001-4000-8000-000000000001"},
-    "medium": {"remove": 4, "label": "Medium", "id": "a1b2c3d4-0002-4000-8000-000000000002"},
-    "hard":   {"remove": 6, "label": "Hard",   "id": "a1b2c3d4-0003-4000-8000-000000000003"},
+    "easy":    {"remove": 2, "label": "Easy",    "id": "a1b2c3d4-0001-4000-8000-000000000001"},
+    "medium":  {"remove": 4, "label": "Medium",  "id": "a1b2c3d4-0002-4000-8000-000000000002"},
+    "hard":    {"remove": 6, "label": "Hard",    "id": "a1b2c3d4-0003-4000-8000-000000000003"},
+    "hardest": {"remove": 8, "label": "Hardest", "id": "a1b2c3d4-0004-4000-8000-000000000004"},
 }
 
 PUZZLE_TYPE_ID = "4cfc344d-5137-4e44-8ed1-60c5810f6a4f"
@@ -71,7 +73,7 @@ def get_engine():
     return create_engine(db_url)
 
 
-_REMOVE_TO_DIFF = {2: "Easy", 4: "Medium", 6: "Hard"}
+_REMOVE_TO_DIFF = {2: "Easy", 4: "Medium", 6: "Hard", 8: "Hardest"}
 
 
 def generate_manifest(engine) -> None:
@@ -256,6 +258,45 @@ def save_to_db(engine, puzzle_name: str, difficulty: str, removed: list[str], co
     print(f"  [OK] Saved to content_puzzle: {code}")
 
 
+def _trim_for_sns(pub_id: str, sns_dir: Path) -> None:
+    """
+    Create platform-specific video cuts from _full.mp4.
+
+    SNS video strategy:
+      _tiktok.mp4    = 0-8s  (TikTok: discovery cut, no answer)
+      _instagram.mp4 = full  (Instagram: full video with answer, catalog/brand)
+
+    Requires ffmpeg. Skips gracefully if ffmpeg is unavailable or source missing.
+    """
+    import shutil as _shutil
+    full_mp4 = sns_dir / f"{pub_id}_full.mp4"
+    if not full_mp4.exists():
+        print(f"  [SNS trim] _full.mp4 not found, skipping trim step.")
+        return
+
+    # TikTok cut: 0-8s (no answer — answer starts at ~9s)
+    tiktok_mp4 = sns_dir / f"{pub_id}_tiktok.mp4"
+    if not tiktok_mp4.exists():
+        try:
+            _sp.run(
+                ["ffmpeg", "-y", "-i", str(full_mp4),
+                 "-t", "8", "-c", "copy", str(tiktok_mp4)],
+                check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+            )
+            print(f"  [OK] TikTok cut (0-8s) -> {tiktok_mp4.name}")
+        except (FileNotFoundError, _sp.CalledProcessError) as e:
+            print(f"  [WARN] TikTok trim failed (ffmpeg required): {e}")
+
+    # Instagram cut: full video (same as _full.mp4, copy for explicit naming)
+    instagram_mp4 = sns_dir / f"{pub_id}_instagram.mp4"
+    if not instagram_mp4.exists():
+        try:
+            _shutil.copy2(str(full_mp4), str(instagram_mp4))
+            print(f"  [OK] Instagram video (full) -> {instagram_mp4.name}")
+        except Exception as e:
+            print(f"  [WARN] Instagram video copy failed: {e}")
+
+
 def publish_one(engine, difficulty: str, seq_number: int | None = None):
     """Publish a single puzzle for the given difficulty."""
     diff_cfg = DIFFICULTY_MAP[difficulty]
@@ -331,20 +372,31 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
         if old_path.exists():
             old_path.replace(new_path)
 
-    # 7.5) Generate SNS video
-    print("[5/6] Generating SNS video...")
-    try:
-        _sp.run(["npm", "run", "generate-sns", pub_id],
-                cwd=str(PROJECT_ROOT / "frontend"), check=True, shell=True)
-        video_src_dir = PROJECT_ROOT / "frontend" / "public" / "sns_videos"
-        for ext in ["mp4", "gif"]:
-            src = video_src_dir / f"{pub_id}.{ext}"
-            if src.exists():
-                dst = img_dir / f"{pub_id}.{ext}"
-                src.replace(dst)
-                print(f"  [OK] Produced {ext} -> {dst}")
-    except Exception as e:
-        print(f"  [WARN] SNS video generation failed: {e}")
+    # 7.5) Generate SNS videos (teaser + full)
+    print("[5/6] Generating SNS videos (teaser + full)...")
+    video_src_dir = PROJECT_ROOT / "frontend" / "public" / "sns_videos"
+    sns_dst_dir = DOCS_DIR / "sns_videos"
+    sns_dst_dir.mkdir(parents=True, exist_ok=True)
+    for mode in ["teaser", "full_play"]:
+        try:
+            _sp.run(
+                ["npm", "run", "generate-sns", "--", pub_id, mode],
+                cwd=str(PROJECT_ROOT / "frontend"), check=True, shell=True,
+            )
+            suffix = "_teaser" if mode == "teaser" else "_full"
+            src_mp4 = video_src_dir / f"{pub_id}{suffix}.mp4"
+            if src_mp4.exists():
+                dst_mp4 = sns_dst_dir / src_mp4.name
+                import shutil
+                shutil.copy2(str(src_mp4), str(dst_mp4))
+                print(f"  [OK] {mode} -> {dst_mp4}")
+        except Exception as e:
+            print(f"  [WARN] SNS video generation failed ({mode}): {e}")
+
+    # 7.6) Trim SNS videos per platform
+    #   _tiktok.mp4    = 0-8s  (TikTok: discovery, no answer)
+    #   _instagram.mp4 = full  (Instagram: brand/catalog, answer included)
+    _trim_for_sns(pub_id, sns_dst_dir)
 
     # 7) Save to DB
     print("[6/6] Saving to database...")
@@ -408,11 +460,18 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
 
 def main():
     parser = argparse.ArgumentParser(description="Auto-publish puzzles")
-    parser.add_argument("--difficulty", choices=["easy", "medium", "hard"], help="Single difficulty")
+    parser.add_argument("--difficulty", choices=["easy", "medium", "hard", "hardest"], help="Single difficulty")
     parser.add_argument("--all", action="store_true", help="Publish easy + medium + hard")
     parser.add_argument("--dir", help="Manual directory for posting (skips generation)")
     parser.add_argument("--twitter", action="store_true", help="Post results to Twitter (X)")
-    parser.add_argument("--instagram", action="store_true", help="Post results to Instagram")
+    parser.add_argument("--instagram", action="store_true", help="Post Instagram Carousel (backward compat)")
+    parser.add_argument("--also-reel", action="store_true", help="Also post Reel (with --instagram, backward compat)")
+    parser.add_argument("--instagram-reel", action="store_true",
+                        help="[Instagram Reel] Brand exposure — full video (0-12s) with answer")
+    parser.add_argument("--instagram-carousel", action="store_true",
+                        help="[Instagram Carousel] Puzzle catalog — layer.png required as cover")
+    parser.add_argument("--tiktok", action="store_true",
+                        help="[TikTok] Discovery — prepare post via browser automation (Playwright)")
     args = parser.parse_args()
 
     if not args.difficulty and not args.all and not args.dir:
@@ -426,7 +485,7 @@ def main():
         q_today = text("SELECT count(*) as cnt FROM content_puzzle WHERE DATE(published_at) = :today")
         with engine.connect() as conn:
             today_base = conn.execute(q_today, {"today": today}).fetchone().cnt
-        for i, diff in enumerate(["easy", "medium", "hard"], start=1):
+        for i, diff in enumerate(["easy", "medium", "hard", "hardest"], start=1):
             r = publish_one(engine, diff, seq_number=today_base + i)
             results.append(r)
     elif args.dir:
@@ -578,13 +637,128 @@ def main():
             if is_live:
                 try:
                     # Use subprocess to run the specific script with poetry
-                    _sp.run(["poetry", "run", "python", "scripts/publish_instagram.py", 
-                             "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL],
-                            check=True, cwd=str(PROJECT_ROOT))
+                    ig_cmd = ["poetry", "run", "python", "scripts/publish_instagram.py",
+                              "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL]
+                    if args.also_reel:
+                        ig_cmd.append("--also-reel")
+                    _sp.run(ig_cmd, check=True, cwd=str(PROJECT_ROOT))
                 except Exception as e:
                     print(f"  [WARN] Instagram post failed for {r['code']}: {e}")
             else:
                 print(f"  [ERROR] Media did not become live in time. Skipping Instagram post for {r['code']}.")
+
+    # TikTok publish (browser automation)
+    # Strategy: TikTok → Discovery — short cut (0-8s), no answer, hook-first
+    if args.tiktok:
+        print("\n  [TikTok] Preparing posts (browser automation)...")
+        for r in results:
+            sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
+            # Prefer _tiktok.mp4 (0-8s cut, no answer), fall back to _full.mp4
+            video_candidates = [
+                sns_dir / f"{r['code']}_tiktok.mp4",
+                sns_dir / f"{r['code']}_full.mp4",
+                sns_dir / f"{r['code']}_teaser.mp4",
+                sns_dir / f"{r['code']}.mp4",
+            ]
+            video_path = next((p for p in video_candidates if p.exists()), None)
+
+            img_dir = Path(r["img_dir"])
+            caption_candidates = [
+                img_dir / "caption_tiktok.txt",
+                img_dir / "caption.txt",
+            ]
+            caption_path = next((p for p in caption_candidates if p.exists()), None)
+
+            if video_path is None:
+                print(f"  [TikTok] ERROR: No video found for {r['code']} — skipping.")
+                print(f"           Searched: {[str(c) for c in video_candidates]}")
+                continue
+            if caption_path is None:
+                print(f"  [TikTok] ERROR: No caption found for {r['code']} — skipping.")
+                continue
+
+            print(f"  [TikTok] {r['code']} → {video_path.name}")
+            try:
+                _sp.run(
+                    [
+                        "poetry", "run", "python",
+                        "scripts/publish_tiktok_browser.py",
+                        "--video", str(video_path),
+                        "--caption", str(caption_path),
+                    ],
+                    check=True,
+                    cwd=str(PROJECT_ROOT),
+                )
+            except Exception as e:
+                print(f"  [TikTok] WARN: Post preparation failed for {r['code']}: {e}")
+
+    # Instagram Reel publish
+    # Strategy: Instagram Reel → Brand exposure — full video (0-12s) with answer
+    if args.instagram_reel:
+        print("\n  [Instagram Reel] Posting Reels...")
+        for r in results:
+            img_dir = Path(r["img_dir"])
+            print(f"  [Instagram Reel] {r['code']} ...")
+
+            # Wait for cover image (3d_x.png) to be live on GitHub Pages
+            # before posting, so Instagram API can fetch it.
+            cover_asset_url = (
+                f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/3d_x.png"
+            )
+            max_retries = 15
+            retry_wait = 20  # seconds
+            is_live = False
+            for attempt in range(1, max_retries + 1):
+                try:
+                    with urllib.request.urlopen(cover_asset_url) as response:
+                        if response.getcode() == 200:
+                            print(f"    [OK] Cover image is live! (Attempt {attempt})")
+                            is_live = True
+                            break
+                except (urllib.error.HTTPError, urllib.error.URLError):
+                    pass
+                print(f"    [...] Waiting for GitHub Pages... (Attempt {attempt}/{max_retries})")
+                time.sleep(retry_wait)
+
+            if not is_live:
+                print(f"  [Instagram Reel] ERROR: Cover image did not become live in time. Skipping {r['code']}.")
+                continue
+
+            try:
+                _sp.run(
+                    [
+                        "poetry", "run", "python",
+                        "scripts/publish_instagram_reel.py",
+                        "--puzzle-id", r["code"],
+                        "--dir", str(img_dir),
+                        "--base-url", PAGES_BASE_URL,
+                    ],
+                    check=True,
+                    cwd=str(PROJECT_ROOT),
+                )
+            except Exception as e:
+                print(f"  [Instagram Reel] WARN: Post failed for {r['code']}: {e}")
+
+    # Instagram Carousel publish
+    # Strategy: Instagram Carousel → Puzzle catalog (layer.png = catalog cover)
+    if args.instagram_carousel:
+        print("\n  [Instagram Carousel] Posting catalogs...")
+        for r in results:
+            img_dir = Path(r["img_dir"])
+            print(f"  [Instagram Carousel] {r['code']} ...")
+            try:
+                _sp.run(
+                    [
+                        "poetry", "run", "python",
+                        "scripts/publish_instagram_carousel.py",
+                        "--dir", str(img_dir),
+                        "--base-url", PAGES_BASE_URL,
+                    ],
+                    check=True,
+                    cwd=str(PROJECT_ROOT),
+                )
+            except Exception as e:
+                print(f"  [Instagram Carousel] WARN: Post failed for {r['code']}: {e}")
 
     print("=" * 60)
 
