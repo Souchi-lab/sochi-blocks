@@ -63,7 +63,7 @@ export function trackEvent(name: string, params: Record<string, unknown> = {}): 
       window.gtag('event', name, params);
     }
     if (import.meta.env.DEV) {
-      console.debug('[analytics]', name, params);
+      console.log('[analytics]', name, params);
     }
   } catch {
     // 解析失敗でゲームを止めない
