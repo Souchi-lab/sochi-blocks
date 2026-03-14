@@ -114,11 +114,12 @@ function App() {
   // ── Missing logic for interactive placement ──
   const allEmptyCells = useMemo((): Vec3[] => {
     if (!data) return [];
-    // Only used to find valid anchors — based on what's NOT in placedCells
+    // removed_pieces に属するセルのうち、まだ配置されていないもののみ
+    const removedSet = new Set(stableRemovedPieces);
     return data.cells
-      .filter(c => !gameState.placedCells.has(`${c.x},${c.y},${c.z}`))
+      .filter(c => removedSet.has(c.piece) && !gameState.placedCells.has(`${c.x},${c.y},${c.z}`))
       .map(c => [c.x, c.y, c.z] as Vec3);
-  }, [data, gameState.placedCells]);
+  }, [data, stableRemovedPieces, gameState.placedCells]);
 
   const fittingRotIndices = useMemo(() => {
     if (!data || !gameState.selectedPiece) return [];
