@@ -17,6 +17,17 @@
   <meta name="twitter:description" content="ペントミノを使った 3D パズル。空いた空間にピースをはめよう。" />
   <meta name="twitter:image"      content="https://souchi-lab.github.io/sochi-blocks/images/20260313/002/3d_x.png" />
 
+  <!-- ── Google Analytics 4 ──────────────────────────────────────── -->
+  <!-- 測定ID変更方法: G-XXXXXXXXXX を実際のIDに差し替える                   -->
+  <!-- ※ frontend/src/constants/siteConfig.ts の GA4_ID も同じIDに更新する  -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script>
+
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -92,31 +103,63 @@
 
     .hero-desc {
       font-size: clamp(0.95rem, 3.5vw, 1.1rem);
-      line-height: 1.7;
-      color: rgba(255,255,255,0.82);
-      margin-top: 20px;
-      max-width: 540px;
-      margin-left: auto;
-      margin-right: auto;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.75);
+      margin-top: 16px;
     }
 
-    .hero-cta {
-      display: inline-block;
+    /* ── [Task 1-1] Hero CTA 2ボタン構成 ── */
+    .hero-cta-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
       margin-top: 28px;
+    }
+
+    .hero-cta-primary {
+      display: inline-block;
       background: #fff;
       color: #1e1e1e;
       border: none;
       border-radius: 50px;
-      padding: 12px 36px;
-      font-size: 0.95rem;
+      padding: 14px 40px;
+      font-size: 1rem;
       font-weight: 800;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       text-decoration: none;
       transition: opacity 0.2s, transform 0.15s;
+      min-width: 220px;
+      text-align: center;
     }
-    .hero-cta:hover {
+    .hero-cta-primary:hover {
       opacity: 0.88;
       transform: translateY(-2px);
+    }
+    .hero-cta-primary[aria-disabled="true"] {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .hero-cta-secondary {
+      display: inline-block;
+      background: transparent;
+      color: rgba(255,255,255,0.7);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50px;
+      padding: 10px 28px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      transition: all 0.2s;
+      min-width: 220px;
+      text-align: center;
+    }
+    .hero-cta-secondary:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border-color: rgba(255,255,255,0.5);
     }
 
     /* ── Content wrapper ── */
@@ -132,6 +175,69 @@
       margin: 40px 0 16px;
     }
 
+    /* ── [Task 1-2] はじめての方へ カード ── */
+    .first-puzzle-section {
+      margin-top: 32px;
+    }
+
+    .first-puzzle-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.09);
+      padding: 18px 20px;
+      text-decoration: none;
+      color: inherit;
+      border-left: 4px solid #1a7f45;
+      transition: box-shadow 0.15s, transform 0.1s;
+    }
+    .first-puzzle-card:hover {
+      box-shadow: 0 4px 18px rgba(0,0,0,0.14);
+      transform: translateY(-2px);
+    }
+    .first-puzzle-card[aria-disabled="true"] {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .fp-icon {
+      font-size: 2rem;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .fp-info { flex: 1; min-width: 0; }
+
+    .fp-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #1a7f45;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .fp-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #1e1e1e;
+      line-height: 1.2;
+    }
+
+    .fp-meta {
+      font-size: 0.82rem;
+      color: #888;
+      margin-top: 3px;
+    }
+
+    .fp-arrow {
+      font-size: 1.4rem;
+      color: #1a7f45;
+      flex-shrink: 0;
+    }
+
     /* ── How to play ── */
     .steps {
       display: grid;
@@ -139,7 +245,7 @@
       gap: 12px;
     }
 
-    @media (min-width: 600px) {
+    @media (min-width: 768px) {
       .steps { grid-template-columns: repeat(3, 1fr); }
     }
 
@@ -201,14 +307,18 @@
       color: #555;
     }
 
-    /* ── Difficulty guide ── */
+    /* ── [Task 1-4] Difficulty guide ── */
     .diff-guide {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: 1fr;
       gap: 10px;
     }
 
-    @media (min-width: 500px) {
+    @media (min-width: 600px) {
+      .diff-guide { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (min-width: 900px) {
       .diff-guide { grid-template-columns: repeat(4, 1fr); }
     }
 
@@ -220,6 +330,7 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      cursor: default;
     }
 
     .diff-card .diff-badge {
@@ -229,11 +340,25 @@
       letter-spacing: 0.06em;
       padding: 3px 10px;
       border-radius: 20px;
+      margin-bottom: 4px;
     }
 
-    .diff-card .diff-pieces {
-      font-size: 0.82rem;
+    .diff-card .diff-target {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #333;
+      line-height: 1.3;
+    }
+
+    .diff-card .diff-time {
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    .diff-card .diff-desc {
+      font-size: 0.78rem;
       color: #666;
+      line-height: 1.4;
       margin-top: 2px;
     }
 
@@ -268,10 +393,11 @@
       min-width: 62px;
       text-align: center;
     }
-    .diff-easy   { background: #e6f9ee; color: #1a7f45; }
-    .diff-medium { background: #fff3e0; color: #b45309; }
-    .diff-hard   { background: #fde8e8; color: #b91c1c; }
-    .diff-other  { background: #eee;    color: #666; }
+    .diff-easy    { background: #e6f9ee; color: #1a7f45; }
+    .diff-medium  { background: #fff3e0; color: #b45309; }
+    .diff-hard    { background: #fde8e8; color: #b91c1c; }
+    .diff-hardest { background: #f3e8ff; color: #6b21a8; }
+    .diff-other   { background: #eee;    color: #666; }
 
     .card-info { flex: 1; min-width: 0; }
     .card-id {
@@ -289,6 +415,139 @@
       font-size: 1.1rem;
       color: #bbb;
       flex-shrink: 0;
+    }
+
+    /* ── [Task 5-1] 進捗サマリ ── */
+    .progress-summary {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 8px;
+      padding: 10px 16px;
+      background: #f0f7ff;
+      border-radius: 10px;
+      border: 1px solid #c3d9ed;
+      font-family: 'Arial', sans-serif;
+    }
+
+    .progress-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #2b6cb0;
+      white-space: nowrap;
+    }
+
+    .progress-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .progress-chip {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .chip-easy    { background: #e6f9ee; color: #1a7f45; }
+    .chip-medium  { background: #fff3e0; color: #b45309; }
+    .chip-hard    { background: #fde8e8; color: #b91c1c; }
+    .chip-hardest { background: #f3e8ff; color: #6b21a8; }
+
+    /* ── [Task 5-2] 今日の1問バナー ── */
+    .featured-section {
+      margin-bottom: 16px;
+    }
+
+    .featured-label {
+      font-family: 'Arial', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #f59e0b;
+      margin-bottom: 6px;
+    }
+
+    .featured-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg, #fffbeb 0%, #fff 60%);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+      padding: 14px 18px;
+      text-decoration: none;
+      color: inherit;
+      border: 1.5px solid #fcd34d;
+      transition: box-shadow 0.15s, transform 0.1s;
+    }
+
+    .featured-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+      transform: translateY(-1px);
+    }
+
+    .featured-icon {
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+
+    /* ── [Task 4-4] クリア済みバッジ ── */
+    .cleared-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #1a7f45;
+      background: #e6f9ee;
+      border: 1px solid #a7f3c3;
+      border-radius: 20px;
+      padding: 2px 8px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .puzzle-card.puzzle-cleared {
+      border-left: 3px solid #34d399;
+    }
+
+    /* ── [Task 1-5] Skeleton UI ── */
+    .skeleton-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px 18px;
+    }
+
+    .sk-badge {
+      width: 62px;
+      height: 22px;
+      border-radius: 20px;
+      flex-shrink: 0;
+    }
+
+    .sk-info { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+
+    .sk-line {
+      height: 12px;
+      border-radius: 6px;
+    }
+    .sk-line-long  { width: 60%; }
+    .sk-line-short { width: 40%; }
+
+    .sk-badge, .sk-line {
+      background: linear-gradient(90deg, #ebebeb 25%, #f5f5f5 50%, #ebebeb 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
     }
 
     /* ── Loading / Error ── */
@@ -385,30 +644,54 @@
     <button class="lang-toggle" onclick="toggleLang()" id="lang-btn">EN</button>
   </header>
 
-  <!-- ── Hero ── -->
+  <!-- ── [Task 1-1] Hero ── -->
   <div class="hero">
     <div class="hero-title">SoChi BLOCKS</div>
     <div class="hero-tagline">think in 3D</div>
-    <p class="hero-desc ja">
-      ペントミノを使った 3D パズル。<br>
-      空いた空間にピースをはめて、空間認識力と<br class="sp-br">論理的思考力を鍛えよう。
-    </p>
-    <p class="hero-desc en">
-      A 3D pentomino puzzle game.<br>
-      Fill the missing spaces by rotating and placing pieces.<br>
-      Train your spatial reasoning and logical thinking.
-    </p>
-    <a class="hero-cta" href="#puzzles">
-      <span class="ja">パズルを選ぶ ↓</span>
-      <span class="en">Choose a Puzzle ↓</span>
-    </a>
+    <p class="hero-desc ja">3Dで考えるペントミノパズル</p>
+    <p class="hero-desc en">A 3D pentomino puzzle</p>
+    <div class="hero-cta-group">
+      <a id="hero-cta-primary" class="hero-cta-primary" href="#" aria-disabled="true">
+        <span class="ja">まず1問やってみる →</span>
+        <span class="en">Try First Puzzle →</span>
+      </a>
+      <a class="hero-cta-secondary" href="#how-to-play">
+        <span class="ja">遊び方を見る</span>
+        <span class="en">How to Play</span>
+      </a>
+    </div>
   </div>
 
   <div class="content">
 
-    <!-- ── How to play ── -->
-    <div class="section-title ja">遊び方</div>
-    <div class="section-title en">How to Play</div>
+    <!-- ── [Task 1-2] はじめての方へ ── -->
+    <div class="first-puzzle-section">
+      <div class="section-title">
+        <span class="ja">はじめての方へ</span>
+        <span class="en">For First-Timers</span>
+      </div>
+      <a id="first-puzzle-card" class="first-puzzle-card" href="#" aria-disabled="true">
+        <div class="fp-icon">🧩</div>
+        <div class="fp-info">
+          <div class="fp-label">Easy</div>
+          <div class="fp-title">
+            <span class="ja">最初の1問を解いてみよう</span>
+            <span class="en">Start with your first puzzle</span>
+          </div>
+          <div class="fp-meta">
+            <span class="ja">ピース2個・目安1〜3分</span>
+            <span class="en">2 pieces missing · 1–3 min</span>
+          </div>
+        </div>
+        <div class="fp-arrow">›</div>
+      </a>
+    </div>
+
+    <!-- ── [Task 1-3 / Task 1-4] How to play ── -->
+    <div id="how-to-play">
+      <div class="section-title ja">遊び方</div>
+      <div class="section-title en">How to Play</div>
+    </div>
 
     <div class="steps">
       <!-- Step 1 -->
@@ -457,41 +740,14 @@
       </div>
     </div>
 
-    <!-- ── Difficulty guide ── -->
-    <div class="section-title ja">難易度</div>
-    <div class="section-title en">Difficulty</div>
-
-    <div class="diff-guide">
-      <div class="diff-card">
-        <span class="diff-badge diff-easy">Easy</span>
-        <div class="diff-pieces ja">ピース 2 個</div>
-        <div class="diff-pieces en">2 pieces missing</div>
-      </div>
-      <div class="diff-card">
-        <span class="diff-badge diff-medium">Medium</span>
-        <div class="diff-pieces ja">ピース 4 個</div>
-        <div class="diff-pieces en">4 pieces missing</div>
-      </div>
-      <div class="diff-card">
-        <span class="diff-badge diff-hard">Hard</span>
-        <div class="diff-pieces ja">ピース 6 個</div>
-        <div class="diff-pieces en">6 pieces missing</div>
-      </div>
-      <div class="diff-card">
-        <span class="diff-badge" style="background:#f3e8ff;color:#6b21a8;">Hardest</span>
-        <div class="diff-pieces ja">ピース 8 個</div>
-        <div class="diff-pieces en">8 pieces missing</div>
-      </div>
-    </div>
-
-    <!-- ── How to play video link ── -->
-    <div style="margin-top:8px;margin-bottom:4px;text-align:center;">
+    <!-- How to play video link -->
+    <div style="margin-top:16px;text-align:center;">
       <a href="./how-to-play.html" style="
         display:inline-flex;align-items:center;gap:8px;
         background:#1e1e1e;color:#fff;text-decoration:none;
-        padding:12px 28px;border-radius:50px;
-        font-size:0.92rem;font-weight:700;letter-spacing:0.04em;
-        transition:opacity 0.2s,transform 0.15s;
+        padding:10px 24px;border-radius:50px;
+        font-size:0.88rem;font-weight:700;letter-spacing:0.04em;
+        transition:opacity 0.2s;
       " onmouseover="this.style.opacity='0.82'" onmouseout="this.style.opacity='1'">
         <span>▶</span>
         <span class="ja">動画で遊び方を見る</span>
@@ -499,7 +755,81 @@
       </a>
     </div>
 
-    <!-- ── About ── -->
+    <!-- ── [Task 1-4] Difficulty guide ── -->
+    <div class="section-title ja">難易度</div>
+    <div class="section-title en">Difficulty</div>
+
+    <div class="diff-guide">
+      <div class="diff-card">
+        <span class="diff-badge diff-easy">Easy</span>
+        <div class="diff-target ja">初めての方向け</div>
+        <div class="diff-target en">For Beginners</div>
+        <div class="diff-time ja">目安 1〜3分</div>
+        <div class="diff-time en">1–3 min</div>
+        <div class="diff-desc ja">2ピース。まずここから</div>
+        <div class="diff-desc en">2 pieces. Start here</div>
+      </div>
+      <div class="diff-card">
+        <span class="diff-badge diff-medium">Medium</span>
+        <div class="diff-target ja">慣れてきたら</div>
+        <div class="diff-target en">Getting the Hang</div>
+        <div class="diff-time ja">目安 3〜8分</div>
+        <div class="diff-time en">3–8 min</div>
+        <div class="diff-desc ja">4ピース。少し悩む</div>
+        <div class="diff-desc en">4 pieces. Gets tricky</div>
+      </div>
+      <div class="diff-card">
+        <span class="diff-badge diff-hard">Hard</span>
+        <div class="diff-target ja">本格的に</div>
+        <div class="diff-target en">Real Challenge</div>
+        <div class="diff-time ja">目安 10〜20分</div>
+        <div class="diff-time en">10–20 min</div>
+        <div class="diff-desc ja">6ピース。手応えあり</div>
+        <div class="diff-desc en">6 pieces. Real challenge</div>
+      </div>
+      <div class="diff-card">
+        <span class="diff-badge diff-hardest">Hardest</span>
+        <div class="diff-target ja">上級者向け</div>
+        <div class="diff-target en">Expert Only</div>
+        <div class="diff-time ja">目安 30分〜</div>
+        <div class="diff-time en">30+ min</div>
+        <div class="diff-desc ja">8ピース。全集中</div>
+        <div class="diff-desc en">8 pieces. Full focus</div>
+      </div>
+    </div>
+
+    <!-- ── Puzzle list ── -->
+    <hr class="section-divider" style="margin-top:36px;" />
+    <div class="section-title" id="puzzles" style="margin-top:28px;">
+      <span class="ja">パズル一覧</span>
+      <span class="en">Puzzles</span>
+      <span class="puzzle-count" id="puzzle-count"></span>
+    </div>
+    <!-- [Task 5-1] 進捗サマリ -->
+    <div id="progress-summary" style="display:none;" class="progress-summary">
+      <span class="progress-label ja">クリア済み: <span id="prog-total">0</span> / <span id="prog-max">0</span> 問</span>
+      <span class="progress-label en">Cleared: <span id="prog-total-en">0</span> / <span id="prog-max-en">0</span></span>
+      <div class="progress-chips" id="prog-chips"></div>
+    </div>
+    <!-- [Task 5-2] 今日の1問 -->
+    <div id="featured-root"></div>
+    <div id="puzzle-root">
+      <!-- [Task 1-5] Skeleton UI -->
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="skeleton-card"><div class="sk-badge"></div><div class="sk-info"><div class="sk-line sk-line-long"></div><div class="sk-line sk-line-short"></div></div></div>
+        <div class="skeleton-card"><div class="sk-badge"></div><div class="sk-info"><div class="sk-line sk-line-long"></div><div class="sk-line sk-line-short"></div></div></div>
+        <div class="skeleton-card"><div class="sk-badge"></div><div class="sk-info"><div class="sk-line sk-line-long"></div><div class="sk-line sk-line-short"></div></div></div>
+        <div class="skeleton-card"><div class="sk-badge"></div><div class="sk-info"><div class="sk-line sk-line-long"></div><div class="sk-line sk-line-short"></div></div></div>
+        <div class="skeleton-card"><div class="sk-badge"></div><div class="sk-info"><div class="sk-line sk-line-long"></div><div class="sk-line sk-line-short"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── [Task 1-3] About（最下部に移動） ── -->
+    <hr class="section-divider" style="margin-top:48px;" />
+    <div class="section-title" style="margin-top:28px;">
+      <span class="ja">このゲームについて</span>
+      <span class="en">About</span>
+    </div>
     <div class="about">
       <div class="about-text ja">
         <p>子どもの頃、よく行っていた本屋さんにペントミノのパズルがあった。<br>
@@ -518,20 +848,6 @@
       <div class="about-sig">— SoChi BLOCKS</div>
     </div>
 
-    <!-- ── Puzzle list ── -->
-    <hr class="section-divider" style="margin-top:36px;" />
-    <div class="section-title" id="puzzles" style="margin-top:28px;">
-      <span class="ja">パズル一覧</span>
-      <span class="en">Puzzles</span>
-      <span class="puzzle-count" id="puzzle-count"></span>
-    </div>
-    <div id="puzzle-root">
-      <div class="status">
-        <span class="ja">読み込み中...</span>
-        <span class="en">Loading puzzles...</span>
-      </div>
-    </div>
-
   </div><!-- /content -->
 
   <footer>
@@ -546,7 +862,12 @@
 
   <script>
     const VIEWER = './viewer.html';
-    const DIFF_CLASS = { Easy: 'diff-easy', Medium: 'diff-medium', Hard: 'diff-hard' };
+    const DIFF_CLASS = {
+      Easy:    'diff-easy',
+      Medium:  'diff-medium',
+      Hard:    'diff-hard',
+      Hardest: 'diff-hardest',
+    };
 
     // ── Language toggle ──────────────────────────────────────────
     const LANG_KEY = 'sochi_lang';
@@ -573,14 +894,59 @@
     // Init language
     applyLang(detectLang());
 
+    // ── Analytics: difficulty_select — パズルカードクリック時 ────
+    // puzzle-card / featured-card / first-puzzle-card に data-difficulty が付いていれば送信
+    document.addEventListener('click', function(e) {
+      var card = e.target.closest('[data-difficulty]');
+      if (!card) return;
+      var difficulty = card.dataset.difficulty;
+      var puzzleId = card.dataset.puzzleId || '';
+      if (difficulty && typeof gtag === 'function') {
+        gtag('event', 'difficulty_select', {
+          difficulty: difficulty,
+          puzzle_id: puzzleId,
+          source_page: location.pathname,
+        });
+      }
+    });
+
+    // ── [Task 1-1] Hero CTA & [Task 1-2] First puzzle card ──────
+    function setFirstPuzzleLinks(easyId) {
+      const url = `${VIEWER}?puzzle_id=${easyId}`;
+
+      const primary = document.getElementById('hero-cta-primary');
+      if (primary) {
+        primary.href = url;
+        primary.removeAttribute('aria-disabled');
+        primary.dataset.difficulty = 'Easy';
+        primary.dataset.puzzleId = easyId;
+      }
+
+      const card = document.getElementById('first-puzzle-card');
+      if (card) {
+        card.href = url;
+        card.removeAttribute('aria-disabled');
+        card.dataset.difficulty = 'Easy';
+        card.dataset.puzzleId = easyId;
+      }
+    }
+
     // ── Puzzle list ──────────────────────────────────────────────
     function diffBadge(d) {
       const cls = DIFF_CLASS[d] || 'diff-other';
       return `<span class="diff-badge ${cls}">${d || '—'}</span>`;
     }
 
+    // [Task 4-4] localStorage からクリア記録を読み込む
+    function loadClears() {
+      try {
+        return JSON.parse(localStorage.getItem('sochi_clears') || '{}');
+      } catch { return {}; }
+    }
+
     function renderGroup(date, puzzles) {
       const label = date || 'Unknown';
+      const clears = loadClears();
       const items = puzzles.map(p => {
         const removedJa = p.removed && p.removed.length
           ? `ピース: ${p.removed.join(', ')}`
@@ -589,14 +955,20 @@
           ? `Missing: ${p.removed.join(', ')}`
           : 'Full display';
         const url = `${VIEWER}?puzzle_id=${p.id}`;
+        const cleared = clears[p.id];
+        const clearedClass = cleared ? ' puzzle-cleared' : '';
+        const clearedBadge = cleared
+          ? `<span class="cleared-badge">✓ Clear</span>`
+          : '';
         return `
-          <a class="puzzle-card" href="${url}">
+          <a class="puzzle-card${clearedClass}" href="${url}" data-difficulty="${p.difficulty || ''}" data-puzzle-id="${p.id}">
             ${diffBadge(p.difficulty)}
             <div class="card-info">
               <div class="card-id">${p.id}</div>
               <div class="card-removed ja">${removedJa}</div>
               <div class="card-removed en">${removedEn}</div>
             </div>
+            ${clearedBadge}
             <span class="card-arrow">&#8250;</span>
           </a>`;
       }).join('');
@@ -604,9 +976,87 @@
               <div class="puzzle-group">${items}</div>`;
     }
 
+    // [Task 5-1] 進捗サマリを描画
+    function renderProgressSummary(data) {
+      const clears = loadClears();
+      const clearIds = new Set(Object.keys(clears));
+      const total = data.length;
+      const clearedTotal = data.filter(p => clearIds.has(p.id)).length;
+      if (clearedTotal === 0) return; // クリア0件のうちは非表示
+
+      const byDiff = { Easy: [0,0], Medium: [0,0], Hard: [0,0], Hardest: [0,0] };
+      for (const p of data) {
+        const d = p.difficulty;
+        if (byDiff[d]) {
+          byDiff[d][1]++;
+          if (clearIds.has(p.id)) byDiff[d][0]++;
+        }
+      }
+      const chips = Object.entries(byDiff)
+        .filter(([, [c, t]]) => t > 0)
+        .map(([d, [c, t]]) => {
+          const cls = d === 'Easy' ? 'chip-easy' : d === 'Medium' ? 'chip-medium' : d === 'Hard' ? 'chip-hard' : 'chip-hardest';
+          return `<span class="progress-chip ${cls}">${d} ${c}/${t}</span>`;
+        }).join('');
+
+      const el = document.getElementById('progress-summary');
+      document.getElementById('prog-total').textContent = clearedTotal;
+      document.getElementById('prog-max').textContent = total;
+      document.getElementById('prog-total-en').textContent = clearedTotal;
+      document.getElementById('prog-max-en').textContent = total;
+      document.getElementById('prog-chips').innerHTML = chips;
+      el.style.display = 'flex';
+    }
+
+    // [Task 5-2] 今日の1問バナーを描画
+    function renderFeatured(data) {
+      const today = new Date().toISOString().slice(0, 10);
+      const featured = data.find(p => p.date === today && p.difficulty === 'Easy')
+        || data.find(p => p.difficulty === 'Easy');
+      if (!featured) return;
+
+      const url = `${VIEWER}?puzzle_id=${featured.id}`;
+      const clears = loadClears();
+      const isCleared = !!clears[featured.id];
+      const clearedBadge = isCleared ? `<span class="cleared-badge">✓ Clear</span>` : '';
+      const isToday = featured.date === today;
+
+      document.getElementById('featured-root').innerHTML = `
+        <div class="featured-section">
+          <div class="featured-label">
+            <span class="ja">${isToday ? '📅 今日の1問' : '⭐ おすすめ'}</span>
+            <span class="en">${isToday ? '📅 Today\'s Puzzle' : '⭐ Featured'}</span>
+          </div>
+          <a class="featured-card" href="${url}" data-difficulty="${featured.difficulty || ''}" data-puzzle-id="${featured.id}">
+            <span class="featured-icon">🧩</span>
+            <div class="card-info">
+              <div class="card-id">${featured.id}</div>
+              <div class="card-removed ja">ピース: ${(featured.removed || []).join(', ')}</div>
+              <div class="card-removed en">Missing: ${(featured.removed || []).join(', ')}</div>
+            </div>
+            ${diffBadge(featured.difficulty)}
+            ${clearedBadge}
+            <span class="card-arrow">&#8250;</span>
+          </a>
+        </div>`;
+    }
+
     fetch('./puzzles/manifest.json')
       .then(r => { if (!r.ok) throw new Error('manifest not found'); return r.json(); })
       .then(data => {
+        // [Task 1-1 / 1-2] 最新のEasyを取得してCTAに設定
+        const latestEasy = data.find(p => p.difficulty === 'Easy');
+        if (latestEasy) {
+          setFirstPuzzleLinks(latestEasy.id);
+        }
+
+        // [Task 5-1] 進捗サマリ
+        renderProgressSummary(data);
+
+        // [Task 5-2] 今日の1問
+        renderFeatured(data);
+
+        // パズル一覧描画
         const root = document.getElementById('puzzle-root');
         if (!data.length) {
           root.innerHTML = '<div class="status"><span class="ja">パズルはまだ公開されていません。</span><span class="en">No puzzles published yet.</span></div>';

@@ -13,6 +13,14 @@ import { validAnchors, placementCells } from './utils/placement';
 import type { Vec3 } from './utils/rotations';
 import { SNSOverlay } from './components/SNSOverlay';
 import { TutorialVideoOverlay } from './components/TutorialVideoOverlay';
+import {
+  initAnalytics,
+  getDifficulty,
+  trackPuzzleOpen,
+  trackPuzzleStart,
+  trackPuzzleComplete,
+} from './utils/analytics';
+import { GA4_ID } from './constants/siteConfig';
 import './App.css';
 
 type CaptureAngle = 'x' | 'y' | null;
@@ -32,6 +40,7 @@ function getParams() {
   const snsVideoMode = (params.get('video_mode') as 'full_play' | 'teaser' | 'tutorial') ?? 'full_play';
   const angle = (params.get('angle') as CaptureAngle) ?? null;
   const initialDelayMs = autoplay ? (parseInt(params.get('delay') ?? '0', 10) || 0) : 0;
+  const lang = params.get('lang') ?? 'ja';
 
   let puzzleFile: string;
   if (id) {
@@ -42,7 +51,7 @@ function getParams() {
     puzzleFile = '';
   }
 
-  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs, snsMode, snsVideoMode };
+  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs, snsMode, snsVideoMode, lang };
 }
 
 // ── Missing pieces card (answer mode + capture mode) ──────────────
@@ -78,8 +87,14 @@ function App() {
   const [cellFlash, setCellFlash] = useState<{ type: 'error' } | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const [clearTimeMs, setClearTimeMs] = useState(0);
+  // [Task 4-1] 次のパズルID
+  const [nextPuzzleId, setNextPuzzleId] = useState<string | null>(null);
 
-  const { id, puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs, snsMode, snsVideoMode } = useMemo(getParams, []);
+  // ── Analytics: セッション内フラグ（重複送信防止）──
+  const startTrackedRef = useRef(false);   // puzzle_start 送信済み
+  const victoryTrackedRef = useRef(false); // puzzle_complete 送信済み
+
+  const { id, puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs, snsMode, snsVideoMode, lang } = useMemo(getParams, []);
   const isTutorialVideo = snsVideoMode === 'tutorial';
 
   const removedPieces = useMemo(() => {
@@ -138,6 +153,41 @@ function App() {
 
   const isFitting = gameState.selectedPiece ? fittingRotIndices.includes(gameState.rotationIndex) : false;
 
+  // ── Analytics: GA4 初期化（一度だけ）──
+  useEffect(() => {
+    initAnalytics(GA4_ID);
+  }, []);
+
+  // ── Analytics: パズル ID が変わったらフラグリセット ──
+  useEffect(() => {
+    startTrackedRef.current = false;
+    victoryTrackedRef.current = false;
+  }, [id]);
+
+  // ── Analytics: puzzle_open — データ読み込み完了時 ──
+  useEffect(() => {
+    if (!data || autoplay || !id || !isGameMode) return;
+    trackPuzzleOpen({
+      puzzleId: id,
+      difficulty: getDifficulty(stableRemovedPieces.length),
+      pieceCount: stableRemovedPieces.length,
+    });
+  // data が変わった時だけ発火。stableRemovedPieces は依存に含めるが二重送信しないよう data に紐づける
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  // ── Analytics: puzzle_complete — クリア確定時 ──
+  useEffect(() => {
+    if (gameState.phase !== 'victory' || clearTimeMs === 0 || autoplay || victoryTrackedRef.current) return;
+    victoryTrackedRef.current = true;
+    trackPuzzleComplete({
+      puzzleId: id,
+      difficulty: getDifficulty(stableRemovedPieces.length),
+      pieceCount: stableRemovedPieces.length,
+      clearSeconds: Math.round(clearTimeMs / 1000),
+    });
+  }, [gameState.phase, clearTimeMs, autoplay, id, stableRemovedPieces]);
+
   // Check local storage for initial tutorial display
   useEffect(() => {
     if (autoplay) return;
@@ -178,6 +228,35 @@ function App() {
       .catch((e) => setError(e.message));
   }, [id, puzzleFile]);
 
+  // [Task 4-1] manifest から次のパズルIDを取得
+  useEffect(() => {
+    if (!id || autoplay) return;
+    fetch('puzzles/manifest.json')
+      .then(r => r.ok ? r.json() : null)
+      .then((manifest: Array<{ id: string }> | null) => {
+        if (!manifest) return;
+        const idx = manifest.findIndex(p => p.id === id);
+        if (idx !== -1 && idx + 1 < manifest.length) {
+          setNextPuzzleId(manifest[idx + 1].id);
+        }
+      })
+      .catch(() => {});
+  }, [id, autoplay]);
+
+  // [Task 4-3] クリア記録を localStorage に保存（ベストタイムのみ更新）
+  useEffect(() => {
+    if (gameState.phase !== 'victory' || autoplay || !id || clearTimeMs === 0) return;
+    try {
+      const key = 'sochi_clears';
+      const prev = JSON.parse(localStorage.getItem(key) ?? '{}');
+      const existing = prev[id];
+      if (!existing || clearTimeMs < existing.time) {
+        prev[id] = { time: clearTimeMs, mistakes: gameState.mistakeCount, date: new Date().toISOString() };
+        localStorage.setItem(key, JSON.stringify(prev));
+      }
+    } catch { /* localStorage unavailable */ }
+  }, [gameState.phase, id, clearTimeMs, gameState.mistakeCount, autoplay]);
+
   // Cleanup flash timer on unmount
   useEffect(() => {
     return () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current); };
@@ -198,11 +277,26 @@ function App() {
     initialDelayMs,
   });
 
+  // ── Analytics: puzzle_start — 最初のピース選択時に一度だけ送信 ──
+  const handleSelectPiece = useCallback((piece: string) => {
+    if (!startTrackedRef.current && isGameMode) {
+      startTrackedRef.current = true;
+      trackPuzzleStart({
+        puzzleId: id,
+        difficulty: getDifficulty(stableRemovedPieces.length),
+        pieceCount: stableRemovedPieces.length,
+      });
+    }
+    selectPiece(piece);
+  }, [selectPiece, id, stableRemovedPieces, isGameMode]);
+
   const handleRestart = useCallback(() => {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     setFlashErrorPiece(null);
     setCellFlash(null);
     setClearTimeMs(0);
+    startTrackedRef.current = false;
+    victoryTrackedRef.current = false;
     restart();
   }, [restart]);
 
@@ -256,7 +350,7 @@ function App() {
       <header className="app-header">
         <div className="header-left">
           {!autoplay && (
-            <a href="./index.html" className="back-btn">← Back</a>
+            <a href="./index.html" className="back-btn">{lang === 'en' ? '← Back' : '← 戻る'}</a>
           )}
           <div className="brand-group">
             <span className="brand-text">SoChi BLOCKS</span>
@@ -271,9 +365,9 @@ function App() {
             <button
               className="tutorial-trigger-btn"
               onClick={() => setShowTutorial(true)}
-              title="Help"
+              title={lang === 'en' ? 'Help' : 'ヘルプ'}
             >
-              Help
+              {lang === 'en' ? 'Help' : 'ヘルプ'}
             </button>
           )}
         </div>
@@ -303,7 +397,7 @@ function App() {
                     onClick={() => setCursorIndex((gameState.cursorIndex - 1 + sortedAnchors.length) % sortedAnchors.length)}
                     aria-label="前の配置位置"
                   >
-                    ←
+                    ← Prev
                   </button>
                   <span className="cursor-nav-count">
                     {gameState.cursorIndex + 1} / {sortedAnchors.length}
@@ -313,7 +407,7 @@ function App() {
                     onClick={() => setCursorIndex((gameState.cursorIndex + 1) % sortedAnchors.length)}
                     aria-label="次の配置位置"
                   >
-                    →
+                    Next →
                   </button>
                 </>
               )}
@@ -322,7 +416,7 @@ function App() {
                 disabled={sortedAnchors.length === 0}
                 onClick={handlePlaceAtCursor}
               >
-                Set
+                ✓ Place
               </button>
             </div>
           )}
@@ -337,6 +431,7 @@ function App() {
                 puzzleId={id}
                 removedPieces={stableRemovedPieces}
                 clearTimeMs={clearTimeMs}
+                nextPuzzleId={nextPuzzleId}
                 onRestart={handleRestart}
                 onViewSolution={() => setShowAnswer(true)}
               />
@@ -349,14 +444,38 @@ function App() {
         </div>
 
         {removedPieces.length > 0 && (!snsMode || isTutorialVideo) && (
-          <aside className="game-sidebar">
+          <aside className={`game-sidebar${isGameMode && gameState.selectedPiece ? ' sidebar--piece-selected' : ''}`}>
+            {/* [Task 3-2] ピース未選択時のガイド */}
+            {isGameMode && !gameState.selectedPiece && gameState.phase === 'playing' && (
+              <div className="guide-hint">
+                {lang === 'ja' ? 'ピースを選んでください ↓' : 'Pick a piece ↓'}
+              </div>
+            )}
+
             {isGameMode && gameState.selectedPiece && (
               <div className="game-middle">
-                <div
-                  className="stage-piece-label"
-                  style={{ color: getPieceColor(gameState.selectedPiece) }}
-                >
-                  Piece {gameState.selectedPiece}
+                {/* [Phase 3.1] ヘッダー: ピース名 + 解除ボタン */}
+                <div className="game-middle-header">
+                  <div
+                    className="stage-piece-label"
+                    style={{ color: getPieceColor(gameState.selectedPiece) }}
+                  >
+                    Piece {gameState.selectedPiece}
+                  </div>
+                  <button
+                    className="piece-deselect-btn"
+                    onClick={() => handleSelectPiece(gameState.selectedPiece!)}
+                    aria-label="選択解除"
+                    title={lang === 'ja' ? 'トレイに戻る' : 'Back to tray'}
+                  >
+                    ×
+                  </button>
+                </div>
+                {/* [Task 3-2] 配置可否フィードバック */}
+                <div className={`fit-status ${isFitting ? 'fit-ok' : 'fit-ng'}`}>
+                  {isFitting
+                    ? (lang === 'ja' ? `✓ ${sortedAnchors.length}箇所に置けます` : `✓ ${sortedAnchors.length} ways to place`)
+                    : (lang === 'ja' ? '✗ この向きでは置けません' : '✗ Cannot place this orientation')}
                 </div>
                 <RotationCandidates
                   piece={gameState.selectedPiece}
@@ -365,8 +484,20 @@ function App() {
                   candidateIndices={fittingRotIndices}
                   onSelect={setRotation}
                 />
-                <div className="drag-hint">
-                  <span className="hint-kbd">WASD · Q/E · R · Enter</span>
+                {/* [Task 3-1] ショートカットをラベル付きで表示 */}
+                <div className="controls-hint-group">
+                  <div className="controls-hint-row">
+                    <span className="controls-hint-label">Rotate</span>
+                    <span className="hint-kbd">WASD · Q/E</span>
+                  </div>
+                  <div className="controls-hint-row">
+                    <span className="controls-hint-label">Move</span>
+                    <span className="hint-kbd">R</span>
+                  </div>
+                  <div className="controls-hint-row">
+                    <span className="controls-hint-label">Place</span>
+                    <span className="hint-kbd">Enter</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -378,7 +509,7 @@ function App() {
                     placedPieces={gameState.placedPieces}
                     selectedPiece={gameState.selectedPiece}
                     flashErrorPiece={flashErrorPiece}
-                    onSelect={selectPiece}
+                    onSelect={handleSelectPiece}
                     onUnplace={handleUnplace}
                   />
                 ) : (
@@ -390,6 +521,28 @@ function App() {
                 )}
               </div>
             </div>
+            {/* [Task 3-3] Undo / Reset 常設ボタン */}
+            {isGameMode && (
+              <div className="game-actions">
+                <button
+                  className="action-btn action-undo"
+                  onClick={() => {
+                    const pieces = [...gameState.placedPieces];
+                    const last = pieces[pieces.length - 1];
+                    if (last) handleUnplace(last);
+                  }}
+                  disabled={gameState.placedPieces.size === 0}
+                >
+                  ↩ Undo
+                </button>
+                <button
+                  className="action-btn action-reset"
+                  onClick={handleRestart}
+                >
+                  ↺ Reset
+                </button>
+              </div>
+            )}
           </aside>
         )}
       </div>
