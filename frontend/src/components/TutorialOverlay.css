@@ -171,6 +171,149 @@ kbd {
     background: #f0f0f0;
 }
 
+/* ── [Task 3-4] Step indicator ── */
+.tutorial-step-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.tutorial-step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e0e0e0;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.tutorial-step-dot.done {
+    background: #a0aec0;
+}
+
+.tutorial-step-dot.active {
+    background: #2b6cb0;
+    transform: scale(1.3);
+}
+
+/* ── [Task 3-4] Step card ── */
+.tutorial-step-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tutorial-step-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.tutorial-step-num {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #aaa;
+    text-transform: uppercase;
+}
+
+.tutorial-step-title {
+    font-family: 'Arial', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #1e1e1e;
+    line-height: 1.2;
+}
+
+.tutorial-step-body {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.9rem;
+    color: #444;
+    line-height: 1.6;
+}
+
+.tutorial-step-hint {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #2b6cb0;
+    margin-top: 4px;
+    padding: 6px 10px;
+    background: #ebf4ff;
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+}
+
+/* ── [Task 3-4] Navigation bar ── */
+.tutorial-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tutorial-nav-right {
+    display: flex;
+    gap: 8px;
+}
+
+.tutorial-skip-btn {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #999;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.15s;
+}
+
+.tutorial-skip-btn:hover {
+    color: #555;
+}
+
+.tutorial-nav-btn {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 20px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.tutorial-prev-btn {
+    background: #f0f0f0;
+    color: #555;
+}
+
+.tutorial-prev-btn:hover {
+    background: #e0e0e0;
+}
+
+.tutorial-next-btn {
+    background: #2b6cb0;
+    color: #fff;
+}
+
+.tutorial-next-btn:hover {
+    background: #2558a3;
+}
+
+.tutorial-done-btn {
+    background: #1a7f45;
+    color: #fff;
+}
+
+.tutorial-done-btn:hover {
+    background: #156038;
+}
+
 /* ── Video link ── */
 .tutorial-video-link {
     display: block;

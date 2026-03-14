@@ -215,9 +215,9 @@
   flex-direction: column;
   background: rgba(255, 255, 255, 0.97);
   box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.08);
-  /* Mobile: cap height so the 3D viewer always stays visible */
-  max-height: 45dvh;
-  overflow-y: auto;
+  /* Mobile: 固定高さでパネル切替時のちらつきを防ぐ */
+  height: 45dvh;
+  overflow: hidden;
 }
 
 /* ── Missing / tray section ─────────────────────────────── */
@@ -339,8 +339,9 @@
 /* ══ CURSOR NAV — placement position cycle ════════════════════ */
 
 .cursor-nav-btn {
-  width: 36px;
-  height: 36px;
+  min-width: 44px;
+  height: 40px;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -370,9 +371,31 @@
   font-family: 'Arial', sans-serif;
   font-size: 0.75rem;
   color: #666;
-  min-width: 3.2em;
+  min-width: 3em;
   text-align: center;
   letter-spacing: 0.02em;
+}
+
+@media (max-width: 400px) {
+  .placement-overlay {
+    gap: 6px;
+    padding: 6px 10px;
+    bottom: 12px;
+  }
+  .cursor-nav-btn {
+    min-width: 32px;
+    height: 36px;
+    padding: 0 4px;
+    font-size: 0.85rem;
+  }
+  .cursor-nav-count {
+    font-size: 0.7rem;
+    min-width: 2.8em;
+  }
+  .place-btn {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
 }
 
 /* ══ PLACE BUTTON ════════════════════════════════════════════ */
@@ -403,6 +426,162 @@
   opacity: 0.35;
   cursor: default;
 }
+
+/* ── [Phase 3.1] game-middle-header (ピース名 + 解除ボタン) ── */
+.game-middle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.piece-deselect-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1.5px solid #ddd;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.piece-deselect-btn:hover {
+  background: #f5f5f5;
+  color: #555;
+  border-color: #bbb;
+}
+
+/* ── [Phase 3.1] モバイル: トレイ↔プレビュー 排他表示 ────── */
+@media (max-width: 767px) {
+  /* 内側パネルがスクロールを担う（overflow-x は tray-pieces に任せる） */
+  .missing-section {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ピース選択中: トレイ・ガイドを非表示、プレビューを全面に */
+  .sidebar--piece-selected .missing-section { display: none; }
+  .sidebar--piece-selected .guide-hint     { display: none; }
+  .sidebar--piece-selected .game-middle {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* game-middle 登場時フェードイン（display:none→flex の瞬間を隠す） */
+  .game-middle {
+    animation: sidebar-panel-fade 0.15s ease-out;
+  }
+}
+
+@keyframes sidebar-panel-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── [Task 3-1] Controls hint group ─────────────────────── */
+.controls-hint-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-self: stretch;
+  padding: 4px 0;
+}
+
+.controls-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.controls-hint-label {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #aaa;
+  text-transform: uppercase;
+  min-width: 3.2em;
+}
+
+@media (pointer: coarse) {
+  .controls-hint-group { display: none; }
+}
+
+/* ── [Task 3-2] Fit status banner ───────────────────────── */
+.fit-status {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.fit-ok {
+  background: #e6f9ee;
+  color: #1a7f45;
+}
+
+.fit-ng {
+  background: #fde8e8;
+  color: #b91c1c;
+}
+
+/* ── [Task 3-2] Guide hint (no piece selected) ──────────── */
+.guide-hint {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #888;
+  text-align: center;
+  padding: 8px 16px;
+  letter-spacing: 0.02em;
+}
+
+/* ── [Task 3-3] Game actions (Undo / Reset) ─────────────── */
+.game-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px 12px;
+  border-top: 1px solid #eee;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 8px 0;
+  font-family: 'Arial', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  background: #f8f8f8;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.action-btn:hover:not(:disabled) {
+  background: #eee;
+  border-color: #bbb;
+}
+
+.action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.action-undo { color: #1a56db; }
+.action-reset { color: #b91c1c; }
 
 /* ══ PIECE TRAY (game mode) ══════════════════════════════════ */
 
@@ -546,6 +725,18 @@
   max-width: min(92vw, 400px);
   max-height: 90dvh;
   overflow-y: auto;
+  animation: victory-card-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes victory-card-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .victory-emoji {
@@ -560,10 +751,51 @@
   color: #1e1e1e;
 }
 
+.victory-time {
+  font-family: 'Arial', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #1e1e1e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.victory-perfect-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: #f59e0b;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
 .victory-mistakes {
   font-family: 'Arial', sans-serif;
   font-size: 0.9rem;
   color: #666;
+}
+
+.victory-next-link {
+  display: block;
+  text-align: center;
+  margin-top: 4px;
+  padding: 10px 24px;
+  font-family: 'Arial', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  background: #2b6cb0;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.15s;
+  width: 100%;
+}
+
+.victory-next-link:hover {
+  background: #2558a3;
 }
 
 .victory-actions {
@@ -706,9 +938,11 @@
     box-shadow: none;
     border-left: 1px solid #e8e8e8;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
-    /* Reset mobile max-height — PC sidebar fills full height */
+    /* Reset mobile fixed-height — PC sidebar fills full height */
+    height: auto;
     max-height: none;
   }
 
