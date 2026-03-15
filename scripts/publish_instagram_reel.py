@@ -50,11 +50,11 @@ def post_reel(puzzle_id: str, asset_dir: Path, base_url: str) -> bool:
         print(f"  Expected: caption_instagram.txt or caption.txt")
         return False
 
-    # Video: prefer _instagram.mp4 (full with answer), then _full.mp4
+    # Video: prefer _teaser.mp4, then _full.mp4 as fallback
     video_candidates = [
-        SNS_VIDEOS_DIR / f"{puzzle_id}_instagram.mp4",
-        SNS_VIDEOS_DIR / f"{puzzle_id}_full.mp4",
         SNS_VIDEOS_DIR / f"{puzzle_id}_teaser.mp4",
+        SNS_VIDEOS_DIR / f"{puzzle_id}_full.mp4",
+        SNS_VIDEOS_DIR / f"{puzzle_id}_instagram.mp4",
     ]
     video_file = next((p for p in video_candidates if p.exists()), None)
     if not video_file:

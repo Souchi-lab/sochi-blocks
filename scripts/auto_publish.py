@@ -77,9 +77,9 @@ _REMOVE_TO_DIFF = {2: "Easy", 4: "Medium", 6: "Hard", 8: "Hardest"}
 
 
 def generate_manifest(engine) -> None:
-    """Regenerate docs/puzzles/manifest.json from DB + puzzle JSONs."""
+    """Regenerate docs/puzzles/manifest.json from DB (single source of truth)."""
     q = text("""
-        SELECT code, difficulty_id, published_at
+        SELECT code, difficulty_id, published_at, removed_pieces
         FROM content_puzzle
         ORDER BY published_at DESC NULLS LAST, code DESC
     """)
@@ -88,12 +88,11 @@ def generate_manifest(engine) -> None:
 
     manifest = []
     for row in rows:
+        # Skip if puzzle JSON doesn't exist on disk yet
         puzzle_json = PUZZLE_DIR / f"puzzle_{row.code}.json"
         if not puzzle_json.exists():
             continue
-        with open(puzzle_json) as f:
-            pdata = json.load(f)
-        removed = pdata.get("removed_pieces", [])
+        removed = list(row.removed_pieces) if row.removed_pieces else []
         diff_label = _DIFFICULTY_LABELS.get(str(row.difficulty_id)) \
             or _REMOVE_TO_DIFF.get(len(removed), "")
         date_str = row.published_at.strftime("%Y-%m-%d") if row.published_at else ""
@@ -240,9 +239,10 @@ def save_to_db(engine, puzzle_name: str, difficulty: str, removed: list[str], co
         VALUES
             (:id, :bp_id, :code, :title, :desc, :diff_id,
              :pt_id, :author_id, :removed, :now, :now, :now)
+        ON CONFLICT (code) DO NOTHING
     """)
     with engine.connect() as conn:
-        conn.execute(q_insert, {
+        result = conn.execute(q_insert, {
             "id": str(uuid.uuid4()),
             "bp_id": str(bp_id),
             "code": code,
@@ -255,7 +255,10 @@ def save_to_db(engine, puzzle_name: str, difficulty: str, removed: list[str], co
             "now": now,
         })
         conn.commit()
-    print(f"  [OK] Saved to content_puzzle: {code}")
+    if result.rowcount == 0:
+        print(f"  [SKIP] Already in DB: {code}")
+    else:
+        print(f"  [OK] Saved to content_puzzle: {code}")
 
 
 def _trim_for_sns(pub_id: str, sns_dir: Path) -> None:
@@ -568,6 +571,17 @@ def main():
         print(f"             {r['url']}")
     print("=" * 60)
 
+    # Write Reel queue for scheduled posting (run_reel_publish.bat, ~20 min later)
+    if not args.dir:
+        tmp_dir = PROJECT_ROOT / "tmp"
+        tmp_dir.mkdir(exist_ok=True)
+        reel_queue_path = tmp_dir / "reel_queue.txt"
+        with open(reel_queue_path, "w", encoding="utf-8") as f:
+            for r in results:
+                f.write(r["code"] + "\n")
+        print(f"\n  [Reel Queue] Written: {reel_queue_path}")
+        print(f"  Run run_reel_publish.bat in ~20 minutes to post Reels with cover images.")
+
     # Regenerate manifest.json
     print("\n  Regenerating manifest.json...")
     generate_manifest(engine)
@@ -655,9 +669,9 @@ def main():
             sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
             # Prefer _tiktok.mp4 (0-8s cut, no answer), fall back to _full.mp4
             video_candidates = [
+                sns_dir / f"{r['code']}_teaser.mp4",
                 sns_dir / f"{r['code']}_tiktok.mp4",
                 sns_dir / f"{r['code']}_full.mp4",
-                sns_dir / f"{r['code']}_teaser.mp4",
                 sns_dir / f"{r['code']}.mp4",
             ]
             video_path = next((p for p in video_candidates if p.exists()), None)
