@@ -4,6 +4,6 @@ Puzzle: 20260307_001
 Difficulty: Easy
 
 Can you solve this in 3D?
-Try it here: https://souchi-lab.github.io/sochi-blocks/viewer.html?puzzle_id=20260307_001 🧩
+Try it here: https://souchi-lab.github.io/sochi-blocks/share/20260307_001.html 🧩
 
 #SoChiBLOCKS #3dpuzzle #thinkin3d
