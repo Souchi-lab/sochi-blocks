@@ -47,3 +47,16 @@ output.log
 output/
 out/
 gemini_work/
+tmp/
+test_*.png
+test_*.mp4
+
+# SNS videos (source files in frontend/public — only docs/sns_videos/ is committed)
+frontend/public/sns_videos/
+backend/scripts/*.mp4
+
+# Temp WebM files from video generation
+*.webm
+
+# Script logs
+scripts/logs/
