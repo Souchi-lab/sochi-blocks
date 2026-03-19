@@ -51,7 +51,8 @@ function getParams() {
     puzzleFile = '';
   }
 
-  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs, snsMode, snsVideoMode, lang };
+  const captureAll = params.get('capture_all') === '1';
+  return { id: id ?? puzzleId ?? '', puzzleFile, urlRemovedPieces, capture, captureAll, angle, autoplay, initialDelayMs, snsMode, snsVideoMode, lang };
 }
 
 // ── Missing pieces card (answer mode + capture mode) ──────────────
@@ -94,7 +95,7 @@ function App() {
   const startTrackedRef = useRef(false);   // puzzle_start 送信済み
   const victoryTrackedRef = useRef(false); // puzzle_complete 送信済み
 
-  const { id, puzzleFile, urlRemovedPieces, capture, angle, autoplay, initialDelayMs, snsMode, snsVideoMode, lang } = useMemo(getParams, []);
+  const { id, puzzleFile, urlRemovedPieces, capture, captureAll, angle, autoplay, initialDelayMs, snsMode, snsVideoMode, lang } = useMemo(getParams, []);
   const isTutorialVideo = snsVideoMode === 'tutorial';
 
   const removedPieces = useMemo(() => {
@@ -328,7 +329,7 @@ function App() {
 
   // ── Capture mode ─────────────────────────────────────────────────
   if (capture) {
-    const captureHidden = new Set(removedPieces);
+    const captureHidden = captureAll ? new Set<string>() : new Set(removedPieces);
     return (
       <div className="capture-root">
         <Viewer data={data} capture={true} captureAngle={angle} hiddenPieces={captureHidden} />
@@ -336,7 +337,7 @@ function App() {
           <span className="brand-text">SoChi BLOCKS</span>
           <span className="brand-tagline">think in 3D</span>
         </div>
-        {removedPieces.length > 0 && (
+        {!captureAll && removedPieces.length > 0 && (
           <div className="capture-missing">
             <MissingCard pieces={removedPieces} />
           </div>

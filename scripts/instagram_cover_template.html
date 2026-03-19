@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instagram Cover Template — SoChi BLOCKS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Preview Page ──────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 48px 40px 80px;
+      background: #EBEBEB;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: #333;
+    }
+
+    .page-header {
+      margin-bottom: 36px;
+    }
+    .page-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: #111;
+      margin: 0 0 6px;
+    }
+    .page-header p {
+      font-size: 13px;
+      color: #888;
+      margin: 0;
+    }
+
+    .cards-row {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .card-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Wrapper clips the 1080→540 scale */
+    .card-wrapper {
+      width: 540px;
+      height: 540px;
+      overflow: hidden;
+      border-radius: 4px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+    }
+
+    .card-label {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #888;
+      letter-spacing: 0.04em;
+    }
+
+    /* ─── Cover Card (1080 × 1080) ──────────────────────── */
+    .cover-card {
+      width: 1080px;
+      height: 1080px;
+      background: #FFFFFF;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 90px 80px 84px;
+      transform: scale(0.5);
+      transform-origin: top left;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    /* Top: tagline */
+    .cover-tagline {
+      font-size: 50px;
+      font-weight: 300;
+      letter-spacing: 0.06em;
+      color: #1A1A1A;
+      text-align: center;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    /* Grid container */
+    .grid-wrap {
+      margin-top: 56px;
+    }
+
+    /* 5 × 4 CSS grid */
+    .puzzle-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 142px);
+      grid-template-rows: repeat(4, 142px);
+      gap: 7px;
+    }
+
+    .cell {
+      border-radius: 10px;
+    }
+
+    /* Empty slot (removed piece visible from top) */
+    .cell-empty {
+      border-radius: 10px;
+      background: #F2F2F2;
+      border: 2.5px dashed #D4D4D4;
+    }
+
+    /* Missing pieces chips */
+    .missing-row {
+      margin-top: 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .missing-label {
+      font-size: 22px;
+      font-weight: 400;
+      color: #AAAAAA;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .piece-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      font-size: 20px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.92);
+      letter-spacing: 0;
+    }
+
+    /* Spacer pushes brand to bottom */
+    .flex-spacer {
+      flex: 1;
+    }
+
+    /* Bottom info section */
+    .cover-info {
+      width: 100%;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .puzzle-number {
+      font-size: 28px;
+      font-weight: 500;
+      color: #1A1A1A;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .difficulty-tag {
+      font-size: 22px;
+      font-weight: 400;
+      color: #999999;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Separator */
+    .cover-divider {
+      width: 100%;
+      height: 1px;
+      background: #EBEBEB;
+      margin-top: 22px;
+    }
+
+    /* Brand */
+    .cover-brand {
+      margin-top: 22px;
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      color: #1A1A1A;
+      text-transform: uppercase;
+      text-align: center;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Instagram Reel Cover Template — SoChi BLOCKS</h1>
+  <p>1080 × 1080px · 3 sample cards at 50% preview scale · white background</p>
+</div>
+
+<div id="cards-container" class="cards-row"></div>
+
+<script>
+// ─── Piece Colors ────────────────────────────────────────────────────────────
+const PIECE_COLORS = {
+  F: '#808080', I: '#4169E1', L: '#FF8C00', N: '#8B008B',
+  P: '#FF69B4', T: '#228B22', U: '#FFD700', V: '#87CEEB',
+  W: '#32CD32', X: '#DC143C', Y: '#8B4513', Z: '#5F9EA0'
+};
+
+// ─── Sample Data (3 puzzles — Easy / Medium / Hard) ──────────────────────────
+// Source: frontend/public/puzzles/puzzle_2026021{9_001,9_002,9_003}.json
+const SAMPLES = [
+  {
+    seriesNumber: 1,
+    puzzleId: '20260219_001',
+    difficulty: 'Easy',
+    showDifficulty: true,
+    removedPieces: ['F', 'I'],
+    grid: { x: 5, y: 4, z: 3 },
+    cells: [{"x":0,"y":0,"z":0,"piece":"L"},{"x":1,"y":0,"z":0,"piece":"L"},{"x":2,"y":0,"z":0,"piece":"L"},{"x":3,"y":0,"z":0,"piece":"L"},{"x":4,"y":0,"z":0,"piece":"T"},{"x":0,"y":1,"z":0,"piece":"I"},{"x":1,"y":1,"z":0,"piece":"I"},{"x":2,"y":1,"z":0,"piece":"I"},{"x":3,"y":1,"z":0,"piece":"I"},{"x":4,"y":1,"z":0,"piece":"I"},{"x":0,"y":2,"z":0,"piece":"Z"},{"x":1,"y":2,"z":0,"piece":"Y"},{"x":2,"y":2,"z":0,"piece":"Y"},{"x":3,"y":2,"z":0,"piece":"Y"},{"x":4,"y":2,"z":0,"piece":"Y"},{"x":0,"y":3,"z":0,"piece":"Z"},{"x":1,"y":3,"z":0,"piece":"F"},{"x":2,"y":3,"z":0,"piece":"V"},{"x":3,"y":3,"z":0,"piece":"V"},{"x":4,"y":3,"z":0,"piece":"V"},{"x":0,"y":0,"z":1,"piece":"U"},{"x":1,"y":0,"z":1,"piece":"X"},{"x":2,"y":0,"z":1,"piece":"U"},{"x":3,"y":0,"z":1,"piece":"L"},{"x":4,"y":0,"z":1,"piece":"T"},{"x":0,"y":1,"z":1,"piece":"X"},{"x":1,"y":1,"z":1,"piece":"X"},{"x":2,"y":1,"z":1,"piece":"X"},{"x":3,"y":1,"z":1,"piece":"N"},{"x":4,"y":1,"z":1,"piece":"T"},{"x":0,"y":2,"z":1,"piece":"Z"},{"x":1,"y":2,"z":1,"piece":"X"},{"x":2,"y":2,"z":1,"piece":"Y"},{"x":3,"y":2,"z":1,"piece":"N"},{"x":4,"y":2,"z":1,"piece":"T"},{"x":0,"y":3,"z":1,"piece":"F"},{"x":1,"y":3,"z":1,"piece":"F"},{"x":2,"y":3,"z":1,"piece":"F"},{"x":3,"y":3,"z":1,"piece":"N"},{"x":4,"y":3,"z":1,"piece":"V"},{"x":0,"y":0,"z":2,"piece":"U"},{"x":1,"y":0,"z":2,"piece":"U"},{"x":2,"y":0,"z":2,"piece":"U"},{"x":3,"y":0,"z":2,"piece":"N"},{"x":4,"y":0,"z":2,"piece":"T"},{"x":0,"y":1,"z":2,"piece":"Z"},{"x":1,"y":1,"z":2,"piece":"P"},{"x":2,"y":1,"z":2,"piece":"P"},{"x":3,"y":1,"z":2,"piece":"N"},{"x":4,"y":1,"z":2,"piece":"W"},{"x":0,"y":2,"z":2,"piece":"Z"},{"x":1,"y":2,"z":2,"piece":"P"},{"x":2,"y":2,"z":2,"piece":"P"},{"x":3,"y":2,"z":2,"piece":"W"},{"x":4,"y":2,"z":2,"piece":"W"},{"x":0,"y":3,"z":2,"piece":"F"},{"x":1,"y":3,"z":2,"piece":"P"},{"x":2,"y":3,"z":2,"piece":"W"},{"x":3,"y":3,"z":2,"piece":"W"},{"x":4,"y":3,"z":2,"piece":"V"}]
+  },
+  {
+    seriesNumber: 2,
+    puzzleId: '20260219_002',
+    difficulty: 'Medium',
+    showDifficulty: true,
+    removedPieces: ['N', 'V', 'W', 'Z'],
+    grid: { x: 5, y: 4, z: 3 },
+    cells: [{"x":0,"y":0,"z":0,"piece":"I"},{"x":1,"y":0,"z":0,"piece":"I"},{"x":2,"y":0,"z":0,"piece":"I"},{"x":3,"y":0,"z":0,"piece":"I"},{"x":4,"y":0,"z":0,"piece":"I"},{"x":0,"y":1,"z":0,"piece":"F"},{"x":1,"y":1,"z":0,"piece":"X"},{"x":2,"y":1,"z":0,"piece":"V"},{"x":3,"y":1,"z":0,"piece":"V"},{"x":4,"y":1,"z":0,"piece":"V"},{"x":0,"y":2,"z":0,"piece":"X"},{"x":1,"y":2,"z":0,"piece":"X"},{"x":2,"y":2,"z":0,"piece":"X"},{"x":3,"y":2,"z":0,"piece":"W"},{"x":4,"y":2,"z":0,"piece":"V"},{"x":0,"y":3,"z":0,"piece":"U"},{"x":1,"y":3,"z":0,"piece":"X"},{"x":2,"y":3,"z":0,"piece":"U"},{"x":3,"y":3,"z":0,"piece":"W"},{"x":4,"y":3,"z":0,"piece":"V"},{"x":0,"y":0,"z":1,"piece":"F"},{"x":1,"y":0,"z":1,"piece":"N"},{"x":2,"y":0,"z":1,"piece":"N"},{"x":3,"y":0,"z":1,"piece":"N"},{"x":4,"y":0,"z":1,"piece":"Y"},{"x":0,"y":1,"z":1,"piece":"F"},{"x":1,"y":1,"z":1,"piece":"P"},{"x":2,"y":1,"z":1,"piece":"P"},{"x":3,"y":1,"z":1,"piece":"W"},{"x":4,"y":1,"z":1,"piece":"Y"},{"x":0,"y":2,"z":1,"piece":"P"},{"x":1,"y":2,"z":1,"piece":"P"},{"x":2,"y":2,"z":1,"piece":"P"},{"x":3,"y":2,"z":1,"piece":"W"},{"x":4,"y":2,"z":1,"piece":"Y"},{"x":0,"y":3,"z":1,"piece":"U"},{"x":1,"y":3,"z":1,"piece":"U"},{"x":2,"y":3,"z":1,"piece":"U"},{"x":3,"y":3,"z":1,"piece":"L"},{"x":4,"y":3,"z":1,"piece":"Y"},{"x":0,"y":0,"z":2,"piece":"T"},{"x":1,"y":0,"z":2,"piece":"T"},{"x":2,"y":0,"z":2,"piece":"T"},{"x":3,"y":0,"z":2,"piece":"N"},{"x":4,"y":0,"z":2,"piece":"N"},{"x":0,"y":1,"z":2,"piece":"F"},{"x":1,"y":1,"z":2,"piece":"T"},{"x":2,"y":1,"z":2,"piece":"Z"},{"x":3,"y":1,"z":2,"piece":"W"},{"x":4,"y":1,"z":2,"piece":"Y"},{"x":0,"y":2,"z":2,"piece":"F"},{"x":1,"y":2,"z":2,"piece":"T"},{"x":2,"y":2,"z":2,"piece":"Z"},{"x":3,"y":2,"z":2,"piece":"Z"},{"x":4,"y":2,"z":2,"piece":"Z"},{"x":0,"y":3,"z":2,"piece":"L"},{"x":1,"y":3,"z":2,"piece":"L"},{"x":2,"y":3,"z":2,"piece":"L"},{"x":3,"y":3,"z":2,"piece":"L"},{"x":4,"y":3,"z":2,"piece":"Z"}]
+  },
+  {
+    seriesNumber: 3,
+    puzzleId: '20260219_003',
+    difficulty: 'Hard',
+    showDifficulty: true,
+    removedPieces: ['I', 'N', 'P', 'V', 'W', 'Z'],
+    grid: { x: 5, y: 4, z: 3 },
+    cells: [{"x":0,"y":0,"z":0,"piece":"Z"},{"x":1,"y":0,"z":0,"piece":"X"},{"x":2,"y":0,"z":0,"piece":"W"},{"x":3,"y":0,"z":0,"piece":"W"},{"x":4,"y":0,"z":0,"piece":"Y"},{"x":0,"y":1,"z":0,"piece":"X"},{"x":1,"y":1,"z":0,"piece":"X"},{"x":2,"y":1,"z":0,"piece":"X"},{"x":3,"y":1,"z":0,"piece":"T"},{"x":4,"y":1,"z":0,"piece":"Y"},{"x":0,"y":2,"z":0,"piece":"U"},{"x":1,"y":2,"z":0,"piece":"X"},{"x":2,"y":2,"z":0,"piece":"U"},{"x":3,"y":2,"z":0,"piece":"T"},{"x":4,"y":2,"z":0,"piece":"Y"},{"x":0,"y":3,"z":0,"piece":"V"},{"x":1,"y":3,"z":0,"piece":"V"},{"x":2,"y":3,"z":0,"piece":"V"},{"x":3,"y":3,"z":0,"piece":"T"},{"x":4,"y":3,"z":0,"piece":"Y"},{"x":0,"y":0,"z":1,"piece":"Z"},{"x":1,"y":0,"z":1,"piece":"Z"},{"x":2,"y":0,"z":1,"piece":"Z"},{"x":3,"y":0,"z":1,"piece":"W"},{"x":4,"y":0,"z":1,"piece":"W"},{"x":0,"y":1,"z":1,"piece":"I"},{"x":1,"y":1,"z":1,"piece":"I"},{"x":2,"y":1,"z":1,"piece":"I"},{"x":3,"y":1,"z":1,"piece":"I"},{"x":4,"y":1,"z":1,"piece":"I"},{"x":0,"y":2,"z":1,"piece":"U"},{"x":1,"y":2,"z":1,"piece":"U"},{"x":2,"y":2,"z":1,"piece":"U"},{"x":3,"y":2,"z":1,"piece":"T"},{"x":4,"y":2,"z":1,"piece":"Y"},{"x":0,"y":3,"z":1,"piece":"V"},{"x":1,"y":3,"z":1,"piece":"L"},{"x":2,"y":3,"z":1,"piece":"L"},{"x":3,"y":3,"z":1,"piece":"L"},{"x":4,"y":3,"z":1,"piece":"L"},{"x":0,"y":0,"z":2,"piece":"P"},{"x":1,"y":0,"z":2,"piece":"P"},{"x":2,"y":0,"z":2,"piece":"Z"},{"x":3,"y":0,"z":2,"piece":"F"},{"x":4,"y":0,"z":2,"piece":"W"},{"x":0,"y":1,"z":2,"piece":"P"},{"x":1,"y":1,"z":2,"piece":"P"},{"x":2,"y":1,"z":2,"piece":"F"},{"x":3,"y":1,"z":2,"piece":"F"},{"x":4,"y":1,"z":2,"piece":"F"},{"x":0,"y":2,"z":2,"piece":"P"},{"x":1,"y":2,"z":2,"piece":"N"},{"x":2,"y":2,"z":2,"piece":"N"},{"x":3,"y":2,"z":2,"piece":"T"},{"x":4,"y":2,"z":2,"piece":"F"},{"x":0,"y":3,"z":2,"piece":"V"},{"x":1,"y":3,"z":2,"piece":"L"},{"x":2,"y":3,"z":2,"piece":"N"},{"x":3,"y":3,"z":2,"piece":"N"},{"x":4,"y":3,"z":2,"piece":"N"}]
+  }
+];
+
+// ─── Difficulty config ────────────────────────────────────────────────────────
+const DIFFICULTY_DOTS = { Easy: 2, Medium: 4, Hard: 6 };
+const MAX_DOTS = 6;
+
+function difficultyDots(level) {
+  const filled = DIFFICULTY_DOTS[level] ?? 0;
+  let s = '';
+  for (let i = 0; i < MAX_DOTS; i++) s += i < filled ? '●' : '○';
+  return s;
+}
+
+// ─── Compute top-down view (challenge state: removed pieces expose layer below) ─
+function computeTopView(cells, grid, removedPieces) {
+  const removed = new Set(removedPieces);
+  // Map (x,y) → best visible cell (highest z, not removed)
+  const best = {};
+  for (const cell of cells) {
+    const key = `${cell.x},${cell.y}`;
+    if (!removed.has(cell.piece)) {
+      if (!best[key] || cell.z > best[key].z) best[key] = cell;
+    }
+  }
+  const rows = [];
+  for (let y = 0; y < grid.y; y++) {
+    const row = [];
+    for (let x = 0; x < grid.x; x++) {
+      row.push(best[`${x},${y}`]?.piece ?? null);
+    }
+    rows.push(row);
+  }
+  return rows; // rows[y][x] = piece letter | null
+}
+
+// ─── Lighten a hex color for cell rendering ───────────────────────────────────
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function lighten(hex, amount = 0.22) {
+  const [r, g, b] = hexToRgb(hex);
+  const l = (v) => Math.round(v + (255 - v) * amount);
+  return `rgb(${l(r)},${l(g)},${l(b)})`;
+}
+
+// ─── Build cover card DOM ─────────────────────────────────────────────────────
+function buildCard(data) {
+  const topView = computeTopView(data.cells, data.grid, data.removedPieces);
+  const numStr = String(data.seriesNumber).padStart(3, '0');
+
+  const card = document.createElement('div');
+  card.className = 'cover-card';
+
+  // 1. Tagline
+  const tagline = document.createElement('p');
+  tagline.className = 'cover-tagline';
+  tagline.textContent = 'Can you solve this?';
+  card.appendChild(tagline);
+
+  // 2. Puzzle grid
+  const gridWrap = document.createElement('div');
+  gridWrap.className = 'grid-wrap';
+
+  const grid = document.createElement('div');
+  grid.className = 'puzzle-grid';
+
+  for (const row of topView) {
+    for (const piece of row) {
+      const cell = document.createElement('div');
+      if (piece) {
+        cell.className = 'cell';
+        cell.style.background = lighten(PIECE_COLORS[piece] ?? '#CCC');
+      } else {
+        cell.className = 'cell-empty';
+      }
+      grid.appendChild(cell);
+    }
+  }
+
+  gridWrap.appendChild(grid);
+  card.appendChild(gridWrap);
+
+  // 3. Missing pieces chips
+  if (data.removedPieces && data.removedPieces.length > 0) {
+    const row = document.createElement('div');
+    row.className = 'missing-row';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'missing-label';
+    lbl.textContent = 'Place:';
+    row.appendChild(lbl);
+
+    for (const p of data.removedPieces) {
+      const chip = document.createElement('span');
+      chip.className = 'piece-chip';
+      chip.textContent = p;
+      chip.style.background = PIECE_COLORS[p] ?? '#CCC';
+      row.appendChild(chip);
+    }
+
+    card.appendChild(row);
+  }
+
+  // 4. Spacer
+  const spacer = document.createElement('div');
+  spacer.className = 'flex-spacer';
+  card.appendChild(spacer);
+
+  // 5. Info row: puzzle number + difficulty
+  const info = document.createElement('div');
+  info.className = 'cover-info';
+
+  const num = document.createElement('span');
+  num.className = 'puzzle-number';
+  num.textContent = `Puzzle #${numStr}`;
+  info.appendChild(num);
+
+  if (data.showDifficulty && data.difficulty) {
+    const diff = document.createElement('span');
+    diff.className = 'difficulty-tag';
+    diff.textContent = `${difficultyDots(data.difficulty)}  ${data.difficulty}`;
+    info.appendChild(diff);
+  }
+
+  card.appendChild(info);
+
+  // 6. Divider
+  const divider = document.createElement('div');
+  divider.className = 'cover-divider';
+  card.appendChild(divider);
+
+  // 7. Brand
+  const brand = document.createElement('div');
+  brand.className = 'cover-brand';
+  brand.textContent = 'SoChi BLOCKS';
+  card.appendChild(brand);
+
+  return card;
+}
+
+// ─── Render all sample cards ──────────────────────────────────────────────────
+const container = document.getElementById('cards-container');
+
+for (const sample of SAMPLES) {
+  const col = document.createElement('div');
+  col.className = 'card-col';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'card-wrapper';
+  wrapper.appendChild(buildCard(sample));
+
+  const lbl = document.createElement('div');
+  lbl.className = 'card-label';
+  lbl.textContent = `#${String(sample.seriesNumber).padStart(3,'0')} — ${sample.difficulty} — ${sample.removedPieces.length} pieces removed`;
+
+  col.appendChild(wrapper);
+  col.appendChild(lbl);
+  container.appendChild(col);
+}
+</script>
+
+<!-- ─── Usage Notes ──────────────────────────────────────────────────────────── -->
+<div style="margin-top:56px; font-size:13px; color:#666; max-width:880px; line-height:1.7;">
+  <h2 style="font-size:15px; font-weight:600; color:#333; margin-bottom:12px;">Layout</h2>
+  <ul style="margin:0 0 24px; padding-left:20px;">
+    <li>Canvas: <strong>1080 × 1080 px</strong>, white background</li>
+    <li>Safe-zone padding: <strong>80 px</strong> on all sides (920 × 920 interior)</li>
+    <li>Puzzle grid: 5 cols × 4 rows, cell <strong>142 px</strong>, gap <strong>7 px</strong> → 737 × 595 px</li>
+    <li>Top-down challenge view: removed pieces expose layer below (or show empty slot)</li>
+    <li>"Place:" chips show the pieces the player must place</li>
+    <li>Spacer pushes brand section to a fixed bottom position</li>
+  </ul>
+
+  <h2 style="font-size:15px; font-weight:600; color:#333; margin-bottom:12px;">Operations Rules</h2>
+  <ul style="margin:0 0 24px; padding-left:20px;">
+    <li><strong>Series number</strong> — set <code>seriesNumber</code> per card; formats as <code>#NNN</code> with zero-padding</li>
+    <li><strong>Difficulty</strong> — set <code>showDifficulty: false</code> to hide the tag entirely (e.g. for "teaser" covers)</li>
+    <li><strong>Easy / Medium / Hard</strong> — currently 2 / 4 / 6 removed pieces; extend <code>DIFFICULTY_DOTS</code> as needed</li>
+    <li><strong>Colors</strong> — edit <code>PIECE_COLORS</code> at top of script to match any future palette change</li>
+    <li><strong>Font</strong> — Inter via Google Fonts; swap to a local font by changing the <code>&lt;link&gt;</code> tag</li>
+  </ul>
+
+  <h2 style="font-size:15px; font-weight:600; color:#333; margin-bottom:12px;">Next Steps — Auto Image Export</h2>
+  <ol style="margin:0; padding-left:20px;">
+    <li>Use <strong>Playwright</strong> to open this file, screenshot each <code>.card-wrapper</code> at 2× device pixel ratio → 1080 px PNG</li>
+    <li>Or port <code>buildCard()</code> logic to <strong>Pillow</strong> in Python (matching this CSS layout) for zero-browser export</li>
+    <li>CLI entry point: <code>python scripts/generate_instagram_cover.py --puzzle_id 20260219_001 --series 1</code></li>
+    <li>Output to <code>out/instagram/&lt;puzzle_id&gt;/cover.png</code> alongside existing <code>01_2d.png</code></li>
+  </ol>
+</div>
+
+</body>
+</html>

@@ -3,7 +3,8 @@ chcp 65001 > nul
 cd /d "%~dp0.."
 
 echo ============================================================
-echo  SoChi BLOCKS — Daily Instagram Publish
+echo  SoChi BLOCKS — Instagram Reel Publish (Scheduled)
+echo  ※ run_daily_publish.bat の約20分後に実行してください
 echo ============================================================
 echo.
 
@@ -14,18 +15,18 @@ echo DB起動待機中...
 timeout /t 5 > nul
 echo.
 
-REM ── パズル生成 → カルーセル投稿（Reel は run_reel_publish.bat で別途実行） ──
-echo [1/1] Instagram カルーセル投稿中...
-poetry run python scripts/auto_publish.py --all --instagram
+REM ── tmp/reel_queue.txt を読んで Reel を投稿 ──────────────────────
+echo [1/1] Instagram Reel 投稿中...
+poetry run python scripts/post_reel_from_queue.py
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo [ERROR] 投稿に失敗したパズルがあります。ログを確認してください。
+    echo [ERROR] Reel 投稿に失敗しました。ログを確認してください。
     pause
     exit /b 1
 )
 
 echo.
 echo ============================================================
-echo  完了！（Reel は約20分後に run_reel_publish.bat を実行してください）
+echo  完了！
 echo ============================================================
 pause

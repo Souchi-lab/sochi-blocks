@@ -568,6 +568,62 @@ def capture_3d_images(
             print("  Dev server stopped.")
 
 
+def capture_3d_images_answer(
+    puzzle_id: str,
+    output_dir: Path,
+) -> None:
+    """Capture 3D answer images with all pieces visible (capture_all=1).
+
+    Outputs: answer_3d_x.png, answer_3d_y.png in output_dir.
+    """
+    server_proc = None
+    if not wait_for_dev_server(DEV_SERVER_URL, timeout=2):
+        print("  Starting Vite dev server ...")
+        server_proc = subprocess.Popen(
+            ["npm", "run", "dev"],
+            cwd=str(PROJECT_ROOT / "frontend"),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            shell=True,
+        )
+        if not wait_for_dev_server(DEV_SERVER_URL, timeout=30):
+            print("ERROR: Could not start dev server", file=sys.stderr)
+            if server_proc:
+                server_proc.terminate()
+            sys.exit(1)
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 1080, "height": 1080})
+
+            for angle, filename in [("x", "answer_3d_x.png"), ("y", "answer_3d_y.png")]:
+                url = (
+                    f"{DEV_SERVER_URL}/"
+                    f"?puzzle_id={puzzle_id}"
+                    f"&mode=capture"
+                    f"&capture_all=1"
+                    f"&angle={angle}"
+                )
+
+                page.goto(url)
+                page.wait_for_function(
+                    "window.__CAPTURE_READY__ === true",
+                    timeout=15000,
+                )
+                page.wait_for_timeout(300)
+
+                out_path = output_dir / filename
+                page.screenshot(path=str(out_path))
+                print(f"  -> {out_path}")
+
+            browser.close()
+    finally:
+        if server_proc:
+            server_proc.terminate()
+            print("  Dev server stopped.")
+
+
 # ---------------------------------------------------------------------------
 # Caption / URL helpers
 # ---------------------------------------------------------------------------
@@ -582,27 +638,26 @@ _DIFFICULTY_TO_LEVEL: dict[str, int] = {
     "Very Hard": 4,
 }
 
+
 TIKTOK_CAPTION_TEMPLATE = """\
-Can you solve this?
+3D pentomino — {removed_count} pieces to place. Can you solve it?
 
-Play online ↓
-Link in bio
+Play online → link in bio
 
-#puzzle #pentomino #braintraining"""
+#puzzle #pentomino #3dpuzzle #spatialreasoning #kidslearning #教育 #知育 #パズル"""
 
 INSTAGRAM_CAPTION_TEMPLATE = """\
-🧩 SoChi BLOCKS — THINK IN 3D.
+🧩 SoChi BLOCKS
 
-Puzzle: {puzzle_id}
+{hook}
+
 Difficulty: {difficulty}
+Trains 3D spatial thinking and logical reasoning.
 
-Can you solve this puzzle in 3D?
+Try it free → link in bio
 
-Try it yourself via the link in bio 👆
-
-#SoChiBLOCKS #pentomino #3dpuzzle #braintraining #puzzlechallenge #mathpuzzle #stemlearning
-#puzzleoftheday #logicpuzzle #spatialreasoning #kidslearning
-#教育 #知育 #空間認識 #パズル #ペントミノ #立体パズル #脳トレ #算数 #理数教育"""
+#SoChiBLOCKS #pentomino #3dpuzzle #spatialreasoning #logicpuzzle #stemlearning #kidslearning
+#教育 #知育 #空間認識 #パズル #ペントミノ"""
 
 TWITTER_CAPTION_TEMPLATE = """\
 🧩 SoChi BLOCKS — THINK IN 3D.
@@ -624,17 +679,29 @@ def build_share_url(puzzle_id: str) -> str:
     return f"{SHARE_BASE_URL}/{puzzle_id}.html"
 
 
-def write_caption(output_dir: Path, puzzle_id: str, difficulty: str) -> None:
+def write_caption(
+    output_dir: Path,
+    puzzle_id: str,
+    difficulty: str,
+    removed_pieces: list[str],
+) -> None:
     viewer_url = build_viewer_url(puzzle_id)
     share_url = build_share_url(puzzle_id)
 
+    removed_count = len(removed_pieces)
+
+    # Hook line — add challenge phrase for harder puzzles (5+ pieces).
+    hook = f"A 3D pentomino puzzle — {removed_count} pieces to place."
+    if removed_count >= 5:
+        hook += " Can you find the solution?"
+
     # TikTok Caption (Discovery: short, hook-first, no answer spoiler)
-    tk_caption = TIKTOK_CAPTION_TEMPLATE
+    tk_caption = TIKTOK_CAPTION_TEMPLATE.format(removed_count=removed_count)
     (output_dir / "caption_tiktok.txt").write_text(tk_caption, encoding="utf-8")
 
-    # Instagram Caption (Catalog: descriptive, puzzle ID + difficulty)
+    # Instagram Caption
     ig_caption = INSTAGRAM_CAPTION_TEMPLATE.format(
-        puzzle_id=puzzle_id,
+        hook=hook,
         difficulty=difficulty,
     )
     (output_dir / "caption_instagram.txt").write_text(ig_caption, encoding="utf-8")
@@ -779,7 +846,7 @@ def main() -> None:
 
     # 4) Caption + URL
     print("[4/4] caption.txt / url.txt")
-    caption = write_caption(output_dir, puzzle_id, difficulty)
+    caption = write_caption(output_dir, puzzle_id, difficulty, removed_pieces=removed_list)
     print(f"  -> {output_dir / 'caption.txt'}")
     print(f"  -> {output_dir / 'url.txt'}")
 

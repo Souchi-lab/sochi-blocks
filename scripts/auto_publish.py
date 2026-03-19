@@ -5,6 +5,9 @@ Auto-publish puzzles end-to-end: DB → images → caption → GitHub Pages.
 One command to do everything for a full day:
   python scripts/auto_publish.py --all
 
+Single shared puzzle mode:
+  python scripts/auto_publish.py --shared-one --difficulty easy --twitter --instagram --tiktok
+
 Flow per puzzle:
   1) Select dissimilar puzzle from DB
   2) Export puzzle JSON
@@ -31,6 +34,16 @@ import urllib.request
 import urllib.error
 
 from sqlalchemy import create_engine, text
+
+# Ensure argparse/help text can be printed on Windows terminals even when
+# the default code page is not UTF-8.
+for _stream_name in ("stdout", "stderr"):
+    _stream = getattr(sys, _stream_name, None)
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
 
 # --- Paths ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -74,6 +87,88 @@ def get_engine():
 
 
 _REMOVE_TO_DIFF = {2: "Easy", 4: "Medium", 6: "Hard", 8: "Hardest"}
+
+
+# ---------------------------------------------------------------------------
+# Hook experiment config
+# ---------------------------------------------------------------------------
+
+def load_hook_config() -> dict:
+    """Load hook experiment config from scripts/hook_config.json.
+
+    Supports two formats:
+      Schedule format (recommended):
+        {"default_hook_pattern": "B", "daily_schedule": {"2026-03-25": "A", ...}}
+        Today's date (YYYY-MM-DD) is looked up in daily_schedule first;
+        falls back to default_hook_pattern if the date is not listed.
+      Legacy format:
+        {"hook_pattern": "A"}
+
+    Returns dict with 'hook_pattern' (A or B), 'source', and optional 'note'.
+    Defaults to Pattern B if file is missing or invalid.
+    """
+    from datetime import date as _date
+    config_path = Path(__file__).resolve().parent / "hook_config.json"
+    if not config_path.exists():
+        return {"hook_pattern": "B", "source": "default", "note": "hook_config.json not found"}
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        today_str = _date.today().isoformat()  # "YYYY-MM-DD"
+
+        if "daily_schedule" in data or "default_hook_pattern" in data:
+            # Schedule format
+            schedule = data.get("daily_schedule", {})
+            default = str(data.get("default_hook_pattern", "B")).upper()
+            if today_str in schedule:
+                pattern = str(schedule[today_str]).upper()
+                source = f"schedule[{today_str}]"
+            else:
+                pattern = default
+                source = "default"
+        else:
+            # Legacy format
+            pattern = str(data.get("hook_pattern", "B")).upper()
+            source = "legacy"
+
+        if pattern not in ("A", "B"):
+            raise ValueError(f"hook_pattern must be 'A' or 'B', got: {pattern!r}")
+        print(f"  [Hook Config] pattern={pattern} source={source}")
+        return {"hook_pattern": pattern, "source": source, "note": data.get("note", "")}
+    except Exception as e:
+        print(f"  [WARN] hook_config.json load error: {e}. Defaulting to Pattern B.")
+        return {"hook_pattern": "B", "source": "fallback", "note": str(e)}
+
+
+def _append_hook_log(puzzle_code: str, hook_pattern: str, video_filename: str, status: str) -> None:
+    """Append one row to scripts/logs/hook_log.csv."""
+    import csv as _csv
+    from datetime import datetime as _dt
+    log_dir = Path(__file__).resolve().parent / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "hook_log.csv"
+    write_header = not log_path.exists()
+    with open(log_path, "a", newline="", encoding="utf-8") as f:
+        writer = _csv.writer(f)
+        if write_header:
+            writer.writerow(["posted_at", "hook_pattern", "puzzle_code", "video_filename", "status"])
+        writer.writerow([_dt.now().isoformat(), hook_pattern, puzzle_code, video_filename, status])
+    print(f"  [Hook Log] {puzzle_code} pattern={hook_pattern} status={status}")
+
+
+def _append_twitter_log(puzzle_code: str, status: str) -> None:
+    """Append one row to scripts/logs/twitter_log.csv."""
+    import csv as _csv
+    from datetime import datetime as _dt
+    log_dir = Path(__file__).resolve().parent / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "twitter_log.csv"
+    write_header = not log_path.exists()
+    with open(log_path, "a", newline="", encoding="utf-8") as f:
+        writer = _csv.writer(f)
+        if write_header:
+            writer.writerow(["posted_at", "puzzle_code", "status"])
+        writer.writerow([_dt.now().isoformat(), puzzle_code, status])
+    print(f"  [Twitter Log] {puzzle_code} status={status}")
 
 
 def generate_manifest(engine) -> None:
@@ -277,7 +372,7 @@ def _trim_for_sns(pub_id: str, sns_dir: Path) -> None:
         print(f"  [SNS trim] _full.mp4 not found, skipping trim step.")
         return
 
-    # TikTok cut: 0-8s (no answer — answer starts at ~9s)
+    # TikTok cut: Pattern B (0-8s, no text overlay — current default)
     tiktok_mp4 = sns_dir / f"{pub_id}_tiktok.mp4"
     if not tiktok_mp4.exists():
         try:
@@ -286,9 +381,37 @@ def _trim_for_sns(pub_id: str, sns_dir: Path) -> None:
                  "-t", "8", "-c", "copy", str(tiktok_mp4)],
                 check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
             )
-            print(f"  [OK] TikTok cut (0-8s) -> {tiktok_mp4.name}")
+            print(f"  [OK] TikTok cut Pattern B (0-8s, no text) -> {tiktok_mp4.name}")
         except (FileNotFoundError, _sp.CalledProcessError) as e:
             print(f"  [WARN] TikTok trim failed (ffmpeg required): {e}")
+
+    # TikTok cut: Pattern A (0-8s + drawtext "Can you solve this?" at 0.5-3.0s)
+    hook_cfg = load_hook_config()
+    if hook_cfg["hook_pattern"] == "A":
+        tiktok_A_mp4 = sns_dir / f"{pub_id}_tiktok_A.mp4"
+        if not tiktok_A_mp4.exists():
+            try:
+                _sp.run(
+                    ["ffmpeg", "-y", "-i", str(full_mp4),
+                     "-t", "8",
+                     "-vf", (
+                         "drawtext="
+                         "text='Can you solve this?':"
+                         "fontfile='C\\:/Windows/Fonts/arial.ttf':"
+                         "fontsize=48:"
+                         "fontcolor=white:"
+                         "x=(w-text_w)/2:"
+                         "y=60:"
+                         "shadowx=2:shadowy=2:"
+                         "enable='between(t,0.5,3.0)'"
+                     ),
+                     str(tiktok_A_mp4)],
+                    check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                )
+                print(f"  [OK] TikTok cut Pattern A (drawtext) -> {tiktok_A_mp4.name}")
+            except (FileNotFoundError, _sp.CalledProcessError) as e:
+                print(f"  [WARN] TikTok Pattern A trim failed: {e}")
+                print(f"  [WARN] Check ffmpeg drawtext support. Pattern A video not created.")
 
     # Instagram cut: full video (same as _full.mp4, copy for explicit naming)
     instagram_mp4 = sns_dir / f"{pub_id}_instagram.mp4"
@@ -406,7 +529,7 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
     save_to_db(engine, puzzle_name, difficulty, removed, pub_id)
 
     # 8) caption.txt alongside images
-    write_caption(img_dir, pub_id, diff_cfg["label"])
+    write_caption(img_dir, pub_id, diff_cfg["label"], removed_pieces=removed)
     print(f"  [OK] caption.txt -> {img_dir / 'caption.txt'}")
 
     print(f"  Images/Video: {img_dir}")
@@ -463,8 +586,17 @@ def publish_one(engine, difficulty: str, seq_number: int | None = None):
 
 def main():
     parser = argparse.ArgumentParser(description="Auto-publish puzzles")
-    parser.add_argument("--difficulty", choices=["easy", "medium", "hard", "hardest"], help="Single difficulty")
-    parser.add_argument("--all", action="store_true", help="Publish easy + medium + hard")
+    parser.add_argument(
+        "--difficulty",
+        choices=["easy", "medium", "hard", "hardest"],
+        help="Single difficulty generation, or pair with --shared-one for single shared puzzle mode",
+    )
+    parser.add_argument("--all", action="store_true", help="Multi-puzzle batch mode: publish easy + medium + hard + hardest")
+    parser.add_argument(
+        "--shared-one",
+        action="store_true",
+        help="Single shared puzzle mode: generate 1 puzzle and share it across enabled platforms (requires --difficulty)",
+    )
     parser.add_argument("--dir", help="Manual directory for posting (skips generation)")
     parser.add_argument("--twitter", action="store_true", help="Post results to Twitter (X)")
     parser.add_argument("--instagram", action="store_true", help="Post Instagram Carousel (backward compat)")
@@ -475,15 +607,30 @@ def main():
                         help="[Instagram Carousel] Puzzle catalog — layer.png required as cover")
     parser.add_argument("--tiktok", action="store_true",
                         help="[TikTok] Discovery — prepare post via browser automation (Playwright)")
+    parser.add_argument("--tiktok-auto", action="store_true",
+                        help="[TikTok] Auto-click Post button (requires --tiktok). "
+                             "Omit to keep semi-auto (manual Post click) as fallback.")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Show what would be posted to each platform without actually posting")
     args = parser.parse_args()
 
+    primary_modes = sum(bool(x) for x in [args.all, args.shared_one, bool(args.dir)])
+    if primary_modes > 1:
+        parser.error("Choose only one primary mode: --all, --shared-one, or --dir")
+    if args.shared_one and not args.difficulty:
+        parser.error("--shared-one requires --difficulty")
+    if args.all and args.difficulty:
+        parser.error("--all cannot be combined with --difficulty")
+    if args.dir and args.difficulty:
+        parser.error("--dir cannot be combined with --difficulty")
     if not args.difficulty and not args.all and not args.dir:
-        parser.error("Specify --difficulty, --all, or --dir")
+        parser.error("Specify --difficulty, --shared-one --difficulty, --all, or --dir")
 
     engine = get_engine()
     results = []
 
     if args.all:
+        print("\n[Mode] multi-puzzle batch mode (--all)")
         today = datetime.now(timezone.utc).date()
         q_today = text("SELECT count(*) as cnt FROM content_puzzle WHERE DATE(published_at) = :today")
         with engine.connect() as conn:
@@ -491,7 +638,12 @@ def main():
         for i, diff in enumerate(["easy", "medium", "hard", "hardest"], start=1):
             r = publish_one(engine, diff, seq_number=today_base + i)
             results.append(r)
+    elif args.shared_one:
+        print(f"\n[Mode] single shared puzzle mode (--shared-one, difficulty={args.difficulty})")
+        r = publish_one(engine, args.difficulty)
+        results.append(r)
     elif args.dir:
+        print(f"\n[Mode] manual posting mode (--dir)")
         # Manual mode
         d = Path(args.dir)
         if not d.exists():
@@ -513,6 +665,7 @@ def main():
             "img_dir": str(d),
         })
     else:
+        print(f"\n[Mode] single difficulty generation (--difficulty {args.difficulty})")
         r = publish_one(engine, args.difficulty)
         results.append(r)
 
@@ -562,6 +715,26 @@ def main():
             r["share_url"] = f"{PAGES_BASE_URL}/share/{r['code']}.html"
             print(f"  [OK] Generated manual share html -> {share_html_path}")
 
+            # Generate captions from puzzle JSON
+            puzzle_json_path = DOCS_DIR / "puzzles" / f"puzzle_{r['code']}.json"
+            if puzzle_json_path.exists():
+                with open(puzzle_json_path) as f:
+                    pdata = json.load(f)
+                removed = pdata.get("removed_pieces", [])
+                diff_label = "Unknown"
+                try:
+                    q_diff = text("SELECT difficulty_id FROM content_puzzle WHERE code = :code LIMIT 1")
+                    with engine.connect() as conn:
+                        row = conn.execute(q_diff, {"code": r["code"]}).fetchone()
+                    if row:
+                        diff_label = _DIFFICULTY_LABELS.get(str(row.difficulty_id), "Unknown")
+                except Exception:
+                    pass
+                write_caption(Path(r["img_dir"]), r["code"], diff_label, removed_pieces=removed)
+                print(f"  [OK] caption generated (removed={removed}, difficulty={diff_label})")
+            else:
+                print(f"  [WARN] puzzle JSON not found, skipping caption: {puzzle_json_path}")
+
     # Summary
     print("\n" + "=" * 60)
     print("  SUMMARY")
@@ -606,152 +779,225 @@ def main():
             print("  Run manually:")
             print('    git push origin main')
 
-    # Twitter publish
+    # Twitter (X) publish — rotation-aware via auto_post_x_daily.py
     if args.twitter:
-        print("\n  Posting to Twitter...")
-        for r in results:
-            print(f"  [TX] Posting {r['code']} ...")
-            try:
-                # Use subprocess to run the specific script with poetry
-                # Pass share_url instead of the viewer url
-                _sp.run(["poetry", "run", "python", "scripts/publish_twitter.py", 
-                         "--dir", r["img_dir"], "--link-only", "--url", r["share_url"]],
-                        check=True, cwd=str(PROJECT_ROOT))
-            except Exception as e:
-                print(f"  [WARN] Twitter post failed for {r['code']}: {e}")
+        date_str = Path(results[0]["img_dir"]).parent.name
+        print(f"\n  [Twitter/X] {'[DryRun] ' if args.dry_run else ''}Posting via auto_post_x_daily.py (date={date_str}) ...")
+        cmd = ["poetry", "run", "python", "scripts/auto_post_x_daily.py", "--date", date_str]
+        if args.dry_run:
+            cmd.append("--dry-run")
+        _sp.run(cmd, cwd=str(PROJECT_ROOT), check=False)
 
     # Instagram publish
     if args.instagram:
-        print("\n  Posting to Instagram...")
-        # First, ensure at least one asset is live on GitHub Pages
-        # The Instagram API requires media to be publicly accessible via URL.
-        # Since we just pushed to GitHub Pages, we wait a bit for it to be live.
-        for r in results:
-            print(f"  [IG] Waiting for media to be live: {r['code']} ...")
-            # Check for layer.png as a proxy for the whole folder
-            asset_url = f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/layer.png"
-            
-            max_retries = 15
-            retry_wait = 20 # seconds
-            is_live = False
-            
-            for attempt in range(1, max_retries + 1):
-                try:
-                    with urllib.request.urlopen(asset_url) as response:
-                        if response.getcode() == 200:
-                            print(f"    [OK] Media is live! (Attempt {attempt})")
-                            is_live = True
-                            break
-                except (urllib.error.HTTPError, urllib.error.URLError):
-                    pass
-                
-                print(f"    [...] Still waiting for GitHub Pages... (Attempt {attempt}/{max_retries})")
-                time.sleep(retry_wait)
-            
-            if is_live:
-                try:
-                    # Use subprocess to run the specific script with poetry
-                    ig_cmd = ["poetry", "run", "python", "scripts/publish_instagram.py",
-                              "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL]
-                    if args.also_reel:
-                        ig_cmd.append("--also-reel")
-                    _sp.run(ig_cmd, check=True, cwd=str(PROJECT_ROOT))
-                except Exception as e:
-                    print(f"  [WARN] Instagram post failed for {r['code']}: {e}")
-            else:
-                print(f"  [ERROR] Media did not become live in time. Skipping Instagram post for {r['code']}.")
+        if args.dry_run:
+            print("\n  [Instagram][DryRun] Would post carousel for:")
+            for r in results:
+                img_dir = Path(r["img_dir"])
+                caption_path = next((img_dir / f for f in ["caption_instagram.txt", "caption.txt"] if (img_dir / f).exists()), None)
+                print(f"    {r['code']}: layer.png + answer_3d_x.png + answer_3d_y.png | caption={caption_path.name if caption_path else 'none'}")
+        else:
+            print("\n  Posting to Instagram...")
+            # First, ensure at least one asset is live on GitHub Pages
+            # The Instagram API requires media to be publicly accessible via URL.
+            # Since we just pushed to GitHub Pages, we wait a bit for it to be live.
+            for r in results:
+                print(f"  [IG] Waiting for media to be live: {r['code']} ...")
+                # Check for layer.png as a proxy for the whole folder
+                asset_url = f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/layer.png"
+
+                max_retries = 15
+                retry_wait = 20 # seconds
+                is_live = False
+
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        with urllib.request.urlopen(asset_url) as response:
+                            if response.getcode() == 200:
+                                print(f"    [OK] Media is live! (Attempt {attempt})")
+                                is_live = True
+                                break
+                    except (urllib.error.HTTPError, urllib.error.URLError):
+                        pass
+
+                    print(f"    [...] Still waiting for GitHub Pages... (Attempt {attempt}/{max_retries})")
+                    time.sleep(retry_wait)
+
+                if is_live:
+                    try:
+                        # Use subprocess to run the specific script with poetry
+                        ig_cmd = ["poetry", "run", "python", "scripts/publish_instagram.py",
+                                  "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL]
+                        if args.also_reel:
+                            ig_cmd.append("--also-reel")
+                        _sp.run(ig_cmd, check=True, cwd=str(PROJECT_ROOT))
+                    except Exception as e:
+                        print(f"  [WARN] Instagram post failed for {r['code']}: {e}")
+                else:
+                    print(f"  [ERROR] Media did not become live in time. Skipping Instagram post for {r['code']}.")
 
     # TikTok publish (browser automation)
     # Strategy: TikTok → Discovery — short cut (0-8s), no answer, hook-first
     if args.tiktok:
-        print("\n  [TikTok] Preparing posts (browser automation)...")
-        for r in results:
-            sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
-            # Prefer _tiktok.mp4 (0-8s cut, no answer), fall back to _full.mp4
-            video_candidates = [
-                sns_dir / f"{r['code']}_teaser.mp4",
-                sns_dir / f"{r['code']}_tiktok.mp4",
-                sns_dir / f"{r['code']}_full.mp4",
-                sns_dir / f"{r['code']}.mp4",
-            ]
-            video_path = next((p for p in video_candidates if p.exists()), None)
+        _hook_cfg = load_hook_config()
+        _hook = _hook_cfg["hook_pattern"]
+        if args.dry_run:
+            print(f"\n  [TikTok][DryRun] Would post (hook={_hook}) for:")
+            for r in results:
+                sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
+                video_candidates = [sns_dir / f"{r['code']}_tiktok_A.mp4", sns_dir / f"{r['code']}_teaser.mp4", sns_dir / f"{r['code']}_tiktok.mp4"]
+                video_path = next((p for p in video_candidates if p.exists()), None)
+                img_dir = Path(r["img_dir"])
+                caption_path = next((img_dir / f for f in ["caption_tiktok.txt", "caption.txt"] if (img_dir / f).exists()), None)
+                print(f"    {r['code']}: video={video_path.name if video_path else 'none'} | caption={caption_path.name if caption_path else 'none'}")
+        else:
+            print(f"\n  [TikTok] Preparing posts (hook={_hook}, browser automation)...")
+            for r in results:
+                sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
+                # Pattern A: _tiktok_A.mp4 (drawtext overlay) must be first to guarantee
+                #            the text overlay is actually posted. _teaser.mp4 has no overlay
+                #            and must NOT precede _tiktok_A.mp4 when hook == "A".
+                # Pattern B: _teaser.mp4 preferred (existing behavior, no text overlay).
+                if _hook == "A":
+                    video_candidates = [
+                        sns_dir / f"{r['code']}_tiktok_A.mp4",  # required: drawtext overlay
+                        sns_dir / f"{r['code']}_teaser.mp4",    # fallback: no overlay (logged as warn)
+                        sns_dir / f"{r['code']}_tiktok.mp4",
+                        sns_dir / f"{r['code']}_full.mp4",
+                        sns_dir / f"{r['code']}.mp4",
+                    ]
+                else:
+                    video_candidates = [
+                        sns_dir / f"{r['code']}_teaser.mp4",
+                        sns_dir / f"{r['code']}_tiktok.mp4",
+                        sns_dir / f"{r['code']}_full.mp4",
+                        sns_dir / f"{r['code']}.mp4",
+                    ]
+                video_path = next((p for p in video_candidates if p.exists()), None)
 
-            img_dir = Path(r["img_dir"])
-            caption_candidates = [
-                img_dir / "caption_tiktok.txt",
-                img_dir / "caption.txt",
-            ]
-            caption_path = next((p for p in caption_candidates if p.exists()), None)
+                img_dir = Path(r["img_dir"])
+                caption_candidates = [
+                    img_dir / "caption_tiktok.txt",
+                    img_dir / "caption.txt",
+                ]
+                caption_path = next((p for p in caption_candidates if p.exists()), None)
 
-            if video_path is None:
-                print(f"  [TikTok] ERROR: No video found for {r['code']} — skipping.")
-                print(f"           Searched: {[str(c) for c in video_candidates]}")
-                continue
-            if caption_path is None:
-                print(f"  [TikTok] ERROR: No caption found for {r['code']} — skipping.")
-                continue
+                if video_path is None:
+                    print(f"  [TikTok] ERROR: No video found for {r['code']} — skipping.")
+                    print(f"           Searched: {[str(c) for c in video_candidates]}")
+                    _append_hook_log(r["code"], _hook, "", "error: no video")
+                    continue
+                if caption_path is None:
+                    print(f"  [TikTok] ERROR: No caption found for {r['code']} — skipping.")
+                    _append_hook_log(r["code"], _hook, video_path.name, "error: no caption")
+                    continue
 
-            print(f"  [TikTok] {r['code']} → {video_path.name}")
-            try:
-                _sp.run(
-                    [
-                        "poetry", "run", "python",
-                        "scripts/publish_tiktok_browser.py",
-                        "--video", str(video_path),
-                        "--caption", str(caption_path),
-                    ],
-                    check=True,
-                    cwd=str(PROJECT_ROOT),
-                )
-            except Exception as e:
-                print(f"  [TikTok] WARN: Post preparation failed for {r['code']}: {e}")
+                print(f"  [TikTok] {r['code']} → {video_path.name}")
+
+                # MO-2: Detect Pattern A fallback — A intended but _tiktok_A.mp4 not used.
+                # This means text overlay is absent; post must be excluded from A/B analysis.
+                a_fallback = _hook == "A" and video_path.name != f"{r['code']}_tiktok_A.mp4"
+                if a_fallback:
+                    print(f"  [TikTok] WARN: hook=A but posting {video_path.name} (no text overlay).")
+                    print(f"  [TikTok] WARN: _tiktok_A.mp4 was not generated. Check ffmpeg drawtext.")
+                    print(f"  [TikTok] WARN: This post must be EXCLUDED from A/B analysis.")
+
+                # Build subprocess command
+                # --cover: use 3d_x.png as TikTok cover image if available
+                cover_path = Path(r["img_dir"]) / "3d_x.png"
+                tiktok_cmd = [
+                    "poetry", "run", "python",
+                    "scripts/publish_tiktok_browser.py",
+                    "--video", str(video_path),
+                    "--caption", str(caption_path),
+                ]
+                if cover_path.exists():
+                    tiktok_cmd += ["--cover", str(cover_path)]
+                if args.tiktok_auto:
+                    tiktok_cmd.append("--auto")
+                    print(f"  [TikTok] Mode: auto (--tiktok-auto)")
+                else:
+                    print(f"  [TikTok] Mode: semi-auto (manual Post click required)")
+
+                status = "ok"
+                try:
+                    _sp.run(tiktok_cmd, check=True, cwd=str(PROJECT_ROOT))
+                except Exception as e:
+                    # Distinguish failure causes via flag files written by publish_tiktok_browser.py
+                    _session_flag = PROJECT_ROOT / "scripts" / "logs" / "tiktok_session_error.flag"
+                    _redirect_flag = PROJECT_ROOT / "scripts" / "logs" / "tiktok_no_redirect.flag"
+                    if _session_flag.exists():
+                        status = "error:session_expired"
+                        _session_flag.unlink()
+                        print(f"  [TikTok] ERROR: Session expired for {r['code']}. Refresh tiktok_cookies.json.")
+                    elif _redirect_flag.exists():
+                        status = "warn:post_no_redirect"
+                        _redirect_flag.unlink()
+                        print(f"  [TikTok] WARN: {r['code']} — post clicked but page did not redirect. Check TikTok Studio.")
+                    else:
+                        status = f"warn:{e}"
+                        print(f"  [TikTok] WARN: Post failed for {r['code']}: {e}")
+                # Append Pattern A fallback marker so contaminated posts are identifiable in CSV
+                if a_fallback:
+                    status = f"warn:A_fallback({video_path.name})" if status == "ok" else f"{status}+A_fallback"
+                _append_hook_log(r["code"], _hook, video_path.name, status)
 
     # Instagram Reel publish
     # Strategy: Instagram Reel → Brand exposure — full video (0-12s) with answer
     if args.instagram_reel:
-        print("\n  [Instagram Reel] Posting Reels...")
-        for r in results:
-            img_dir = Path(r["img_dir"])
-            print(f"  [Instagram Reel] {r['code']} ...")
+        if args.dry_run:
+            print("\n  [Instagram Reel][DryRun] Would post Reels for:")
+            for r in results:
+                sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
+                video_candidates = [sns_dir / f"{r['code']}_instagram.mp4", sns_dir / f"{r['code']}_full.mp4"]
+                video_path = next((p for p in video_candidates if p.exists()), None)
+                img_dir = Path(r["img_dir"])
+                caption_path = next((img_dir / f for f in ["caption_instagram.txt", "caption.txt"] if (img_dir / f).exists()), None)
+                print(f"    {r['code']}: video={video_path.name if video_path else 'none'} | cover=3d_x.png | caption={caption_path.name if caption_path else 'none'}")
+        else:
+            print("\n  [Instagram Reel] Posting Reels...")
+            for r in results:
+                img_dir = Path(r["img_dir"])
+                print(f"  [Instagram Reel] {r['code']} ...")
 
-            # Wait for cover image (3d_x.png) to be live on GitHub Pages
-            # before posting, so Instagram API can fetch it.
-            cover_asset_url = (
-                f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/3d_x.png"
-            )
-            max_retries = 15
-            retry_wait = 20  # seconds
-            is_live = False
-            for attempt in range(1, max_retries + 1):
-                try:
-                    with urllib.request.urlopen(cover_asset_url) as response:
-                        if response.getcode() == 200:
-                            print(f"    [OK] Cover image is live! (Attempt {attempt})")
-                            is_live = True
-                            break
-                except (urllib.error.HTTPError, urllib.error.URLError):
-                    pass
-                print(f"    [...] Waiting for GitHub Pages... (Attempt {attempt}/{max_retries})")
-                time.sleep(retry_wait)
-
-            if not is_live:
-                print(f"  [Instagram Reel] ERROR: Cover image did not become live in time. Skipping {r['code']}.")
-                continue
-
-            try:
-                _sp.run(
-                    [
-                        "poetry", "run", "python",
-                        "scripts/publish_instagram_reel.py",
-                        "--puzzle-id", r["code"],
-                        "--dir", str(img_dir),
-                        "--base-url", PAGES_BASE_URL,
-                    ],
-                    check=True,
-                    cwd=str(PROJECT_ROOT),
+                # Wait for cover image (3d_x.png) to be live on GitHub Pages
+                # before posting, so Instagram API can fetch it.
+                cover_asset_url = (
+                    f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/3d_x.png"
                 )
-            except Exception as e:
-                print(f"  [Instagram Reel] WARN: Post failed for {r['code']}: {e}")
+                max_retries = 15
+                retry_wait = 20  # seconds
+                is_live = False
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        with urllib.request.urlopen(cover_asset_url) as response:
+                            if response.getcode() == 200:
+                                print(f"    [OK] Cover image is live! (Attempt {attempt})")
+                                is_live = True
+                                break
+                    except (urllib.error.HTTPError, urllib.error.URLError):
+                        pass
+                    print(f"    [...] Waiting for GitHub Pages... (Attempt {attempt}/{max_retries})")
+                    time.sleep(retry_wait)
+
+                if not is_live:
+                    print(f"  [Instagram Reel] ERROR: Cover image did not become live in time. Skipping {r['code']}.")
+                    continue
+
+                try:
+                    _sp.run(
+                        [
+                            "poetry", "run", "python",
+                            "scripts/publish_instagram_reel.py",
+                            "--puzzle-id", r["code"],
+                            "--dir", str(img_dir),
+                            "--base-url", PAGES_BASE_URL,
+                        ],
+                        check=True,
+                        cwd=str(PROJECT_ROOT),
+                    )
+                except Exception as e:
+                    print(f"  [Instagram Reel] WARN: Post failed for {r['code']}: {e}")
 
     # Instagram Carousel publish
     # Strategy: Instagram Carousel → Puzzle catalog (layer.png = catalog cover)

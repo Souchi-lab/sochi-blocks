@@ -1,0 +1,14 @@
+{
+  "default_hook_pattern": "B",
+  "daily_schedule": {
+    "2026-03-18": "A",
+    "2026-03-19": "A",
+    "2026-03-20": "B",
+    "2026-03-21": "A",
+    "2026-03-22": "B",
+    "2026-03-23": "A",
+    "2026-03-24": "B",
+    "2026-03-25": "A"
+  },
+  "note": "Week 1 Round 1 schedule. Mon/Wed/Fri/Sun = A, Tue/Thu/Sat = B. default_hook_pattern = B (fallback for unscheduled dates)."
+}
