@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# Force UTF-8 output on Windows (avoids cp932 crash with em dash etc.)
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 """
 Semi-automatic TikTok video post via Playwright (browser automation).
 
@@ -68,11 +74,16 @@ _POST_BUTTON_SELECTORS = [
 ]
 
 _COVER_BUTTON_SELECTORS = [
+    # Current TikTok Studio UI (2026): "Edit cover" div inside cover_container
+    '[data-e2e="cover_container"] .edit-container',
+    '.edit-container',
+    'div:has-text("Edit cover")',
+    '[data-e2e="cover_container"]',
+    # Legacy selectors (kept as fallback)
     '[data-e2e="cover-change-btn"]',
     '[data-e2e="select-cover"]',
     'button:has-text("Select cover")',
     'button:has-text("カバーを選択")',
-    'div:has-text("Select cover")',
 ]
 
 _COVER_UPLOAD_SELECTORS = [
@@ -228,6 +239,81 @@ def _find_locator_in_frames(page, selectors: list[str], label: str, timeout_ms: 
     return None, None
 
 
+def _dismiss_joyride_overlay(page) -> None:
+    """
+    Dismiss TikTok's react-joyride guided tour overlay if present.
+
+    TikTok occasionally shows a guided tour that places a full-screen overlay
+    (data-test-id="overlay") which intercepts all pointer events and blocks
+    interaction with the caption editor and Post button.
+
+    Strategy:
+      1. Try clicking a Skip / Close button on the tour tooltip.
+      2. Fallback: press Escape.
+      3. Fallback: JavaScript click on the overlay element directly.
+    Does nothing (silently) if the overlay is not present.
+    """
+    _SKIP_SELECTORS = [
+        '[data-test-id="button-skip"]',
+        'button:has-text("Skip")',
+        'button:has-text("スキップ")',
+        '[aria-label="Close"]',
+        '[data-testid="joyride-close"]',
+    ]
+    _OVERLAY_SELECTORS = [
+        '[data-test-id="overlay"]',
+        '.react-joyride__overlay',
+    ]
+
+    # Check if overlay is present at all (fast check, 1s timeout)
+    overlay_present = False
+    for sel in _OVERLAY_SELECTORS:
+        try:
+            page.locator(sel).first.wait_for(state="visible", timeout=1000)
+            overlay_present = True
+            break
+        except PlaywrightTimeoutError:
+            continue
+    if not overlay_present:
+        return
+
+    print("  [Overlay] TikTok guided tour detected. Attempting to dismiss...")
+
+    # 1. Try skip/close button
+    for sel in _SKIP_SELECTORS:
+        try:
+            btn = page.locator(sel).first
+            btn.wait_for(state="visible", timeout=2000)
+            btn.click()
+            page.wait_for_timeout(800)
+            print(f"  [Overlay] Dismissed via '{sel}'.")
+            return
+        except PlaywrightTimeoutError:
+            continue
+
+    # 2. Fallback: Escape key
+    try:
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(800)
+        print("  [Overlay] Dismissed via Escape key.")
+        return
+    except Exception:
+        pass
+
+    # 3. Fallback: JavaScript click on the overlay to dismiss
+    try:
+        page.evaluate("""
+            const overlay = document.querySelector('[data-test-id="overlay"]')
+                         || document.querySelector('.react-joyride__overlay');
+            if (overlay) overlay.click();
+        """)
+        page.wait_for_timeout(800)
+        print("  [Overlay] Dismissed via JavaScript click.")
+    except Exception as e:
+        print(f"  [Overlay] Could not dismiss overlay: {e}")
+        print("  [Overlay] Interactions may fail. Check the browser window.")
+
+
 def _check_login_state(page) -> bool:
     """Return False if TikTok redirected to a login page."""
     url = page.url or ""
@@ -365,11 +451,37 @@ def _set_cover(page, cover_path: Path) -> bool:
         return False
 
     try:
-        cover_btn.click()
+        cover_btn.dispatch_event("click")
         page.wait_for_timeout(1500)
-    except Exception as e:
-        print(f"Warning: Failed to click cover button: {e}")
-        return False
+    except Exception:
+        try:
+            cover_btn.click(force=True)
+            page.wait_for_timeout(1500)
+        except Exception as e:
+            print(f"Warning: Failed to click cover button: {e}")
+            return False
+
+
+    # Click "Upload cover" tab in the cover dialog (TikTok default is "Select cover").
+    # The tab text is "Upload cover" (not "Upload"), and it is a div/span, not a button.
+    _UPLOAD_TAB_SELECTORS = [
+        'text=Upload cover',
+        ':text-is("Upload cover")',
+        'div:has-text("Upload cover")',
+        'span:has-text("Upload cover")',
+    ]
+    _, upload_tab = _find_locator_in_frames(
+        page, _UPLOAD_TAB_SELECTORS, "upload tab", timeout_ms=5000
+    )
+    if upload_tab is not None:
+        try:
+            upload_tab.click()
+            page.wait_for_timeout(1000)
+            print("  Switched to Upload cover tab.")
+        except Exception as e:
+            print(f"  Warning: Could not click Upload cover tab: {e}")
+    else:
+        print("  Warning: Upload cover tab not found — trying direct file upload.")
 
     # Find image upload input inside the cover dialog
     _, upload_input = _find_locator_in_frames(
@@ -381,25 +493,73 @@ def _set_cover(page, cover_path: Path) -> bool:
 
     try:
         upload_input.set_input_files(str(cover_path.resolve()))
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(3000)
         print(f"  Cover image uploaded: {cover_path.name}")
     except Exception as e:
         print(f"Warning: Failed to upload cover image: {e}")
         return False
 
-    # Confirm / close the cover dialog
+    # Confirm / close the cover dialog.
+    # Wait up to 15s for TikTok to process the uploaded image and enable Confirm.
     _, confirm_btn = _find_locator_in_frames(
-        page, _COVER_CONFIRM_SELECTORS, "cover confirm", timeout_ms=5000
+        page, _COVER_CONFIRM_SELECTORS, "cover confirm", timeout_ms=8000
     )
-    if confirm_btn:
-        try:
-            confirm_btn.click()
-            page.wait_for_timeout(1000)
-            print("  Cover confirmed.")
-        except Exception as e:
-            print(f"Warning: Could not click confirm button: {e}")
-    else:
+    if confirm_btn is None:
         print("Warning: Could not find confirm button. Please confirm cover manually.")
+        return False
+
+    for tick in range(15):
+        try:
+            if confirm_btn.is_enabled():
+                break
+        except Exception:
+            pass
+        print(f"  Waiting for Confirm button to be enabled... ({tick + 1}s)")
+        page.wait_for_timeout(1000)
+
+    try:
+        # TikTok has a hidden Confirm button (positioned at ~-99999px) in addition to
+        # the visible one. Standard locators find the hidden one first.
+        # Use JS to find the VISIBLE Confirm button (getBoundingClientRect x/y > 0)
+        # and fire a full mouse event sequence required by TikTok's React handlers.
+        result = page.evaluate("""
+            () => {
+                const btns = Array.from(document.querySelectorAll('button'));
+                const btn = btns.find(b => {
+                    const t = (b.textContent || '').trim();
+                    if (t !== 'Confirm') return false;
+                    const r = b.getBoundingClientRect();
+                    return r.width > 0 && r.x > -100 && r.y > -100 && r.x < 2000;
+                });
+                if (!btn) return null;
+                const r = btn.getBoundingClientRect();
+                const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                const opts = {bubbles: true, cancelable: true, clientX: cx, clientY: cy};
+                btn.dispatchEvent(new MouseEvent('mouseover', opts));
+                btn.dispatchEvent(new MouseEvent('mousedown', opts));
+                btn.dispatchEvent(new MouseEvent('mouseup',   opts));
+                btn.dispatchEvent(new MouseEvent('click',     opts));
+                return {x: cx, y: cy, w: r.width};
+            }
+        """)
+        if result:
+            print(f"  Confirm clicked at ({result['x']:.0f}, {result['y']:.0f})")
+        else:
+            print("  Warning: visible Confirm button not found via JS")
+        page.wait_for_timeout(2000)
+        print("  Cover confirmed.")
+    except Exception as e:
+        print(f"Warning: Could not click confirm button: {e}")
+
+    # If modal is still open (e.g. confirm failed), close it with Escape
+    # so the TUXModal-overlay doesn't block the Post button.
+    try:
+        page.locator('.TUXModal-overlay').first.wait_for(state="visible", timeout=1000)
+        print("  Warning: Cover modal still open — dismissing with Escape.")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(1000)
+    except PlaywrightTimeoutError:
+        pass  # Modal already closed — good
 
     return True
 
@@ -513,6 +673,10 @@ def publish_to_tiktok(
                 print("    2. Export cookies via 'EditThisCookie' or 'Cookie-Editor'.")
                 print("    3. Overwrite scripts/tiktok_cookies.json")
                 print("    4. Re-run this script.")
+                # Write flag file so auto_publish.py can log session_expired to hook_log.csv
+                _flag = Path(__file__).resolve().parent / "logs" / "tiktok_session_error.flag"
+                _flag.parent.mkdir(parents=True, exist_ok=True)
+                _flag.write_text("session_expired", encoding="utf-8")
                 browser.close()
                 return False
 
@@ -534,9 +698,22 @@ def publish_to_tiktok(
                 return False
 
             # ------------------------------------------------------------------
+            # Step 3.5: Dismiss guided tour overlay (if present)
+            # ------------------------------------------------------------------
+            _dismiss_joyride_overlay(page)
+
+            # ------------------------------------------------------------------
             # Step 4: Enter caption
             # ------------------------------------------------------------------
             _enter_caption(page, frame, caption_loc, caption)
+
+            # ------------------------------------------------------------------
+            # Step 4.5: Set cover image (if provided)
+            # ------------------------------------------------------------------
+            if cover_path and cover_path.exists():
+                _set_cover(page, cover_path)
+            elif cover_path:
+                print(f"  Warning: Cover image not found: {cover_path}")
 
             # ------------------------------------------------------------------
             # Step 5: Wait for Post button
@@ -555,9 +732,103 @@ def publish_to_tiktok(
 
                 print()
                 print("  [--auto] Clicking Post button...")
-                post_btn.click()
-                page.wait_for_timeout(6000)  # Wait for submission response
-                print("  [--auto] Post submitted. Check TikTok for the result.")
+                # Use same JS approach as Confirm: find visible button by getBoundingClientRect
+                # and fire full mouse event sequence.
+                post_result = page.evaluate("""
+                    () => {
+                        const btns = Array.from(document.querySelectorAll('[data-e2e="post_video_button"], button'));
+                        const btn = btns.find(b => {
+                            const e2e = b.getAttribute('data-e2e');
+                            if (e2e && e2e !== 'post_video_button') return false;
+                            const t = (b.textContent || '').trim();
+                            if (!e2e && t !== 'Post' && t !== '投稿') return false;
+                            const r = b.getBoundingClientRect();
+                            return r.width > 0 && r.x > -100 && r.y > -100 && r.x < 2000;
+                        });
+                        if (!btn) return null;
+                        const r = btn.getBoundingClientRect();
+                        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                        const opts = {bubbles: true, cancelable: true, clientX: cx, clientY: cy};
+                        btn.dispatchEvent(new MouseEvent('mouseover', opts));
+                        btn.dispatchEvent(new MouseEvent('mousedown', opts));
+                        btn.dispatchEvent(new MouseEvent('mouseup',   opts));
+                        btn.dispatchEvent(new MouseEvent('click',     opts));
+                        return {x: cx, y: cy};
+                    }
+                """)
+                if post_result:
+                    print(f"  [--auto] Post button clicked at ({post_result['x']:.0f}, {post_result['y']:.0f})")
+                else:
+                    print("  [--auto] Warning: visible Post button not found via JS, fallback dispatch_event")
+                    post_btn.dispatch_event("click")
+
+                # Detect post success (up to 15s).
+                # TikTok typically stays on tiktokstudio/upload but shows a review/success
+                # message after submission. Also handle redirect to a non-upload page.
+                # Known upload-page patterns (still filling the form = not yet submitted):
+                #   https://www.tiktok.com/upload  (legacy)
+                # Success destination (also an /upload path but shows review content):
+                #   https://www.tiktok.com/tiktokstudio/upload  → DO NOT flag as failure
+                _STILL_UPLOADING_PATTERNS = ["www.tiktok.com/upload"]  # legacy upload only
+                _SUCCESS_CONTENT_SELECTORS = [
+                    'div:has-text("Content under review")',
+                    'div:has-text("コンテンツの審査")',
+                    'div:has-text("under review")',
+                    '[data-e2e="post-success"]',
+                    '[data-e2e="upload-success"]',
+                ]
+                # "Continue to post?" dialog selectors (copyright check still in progress)
+                _POST_NOW_SELECTORS = [
+                    'button:has-text("Post now")',
+                    'button:has-text("今すぐ投稿")',
+                ]
+
+                success = False
+                current_url = ""
+                for tick in range(20):
+                    page.wait_for_timeout(1000)
+                    current_url = page.url or ""
+
+                    # Case 0: "Continue to post?" dialog — click "Post now"
+                    for sel in _POST_NOW_SELECTORS:
+                        try:
+                            post_now = page.locator(sel).first
+                            post_now.wait_for(state="visible", timeout=500)
+                            print(f"  [--auto] 'Continue to post?' dialog — clicking Post now.")
+                            post_now.evaluate("el => el.click()")
+                            page.wait_for_timeout(1000)
+                            break
+                        except PlaywrightTimeoutError:
+                            pass
+
+                    # Case 1: redirected away from upload entirely
+                    if not any(p in current_url for p in ["tiktok.com/upload", "tiktokstudio/upload"]):
+                        print(f"  [--auto] Redirected → {current_url[:80]}")
+                        success = True
+                        break
+                    # Case 2: still on tiktokstudio/upload but success content appeared
+                    for sel in _SUCCESS_CONTENT_SELECTORS:
+                        try:
+                            page.locator(sel).first.wait_for(state="visible", timeout=500)
+                            print(f"  [--auto] Post accepted (review/success content detected).")
+                            success = True
+                            break
+                        except PlaywrightTimeoutError:
+                            pass
+                    if success:
+                        break
+                    print(f"  [--auto] Waiting for post confirmation... ({tick + 1}s)")
+
+                if not success:
+                    print("  [--auto] WARNING: Could not confirm post success after 20s.")
+                    print(f"           URL: {current_url[:80]}")
+                    print("           Check TikTok Studio to confirm if the video was posted.")
+                    _nr_flag = Path(__file__).resolve().parent / "logs" / "tiktok_no_redirect.flag"
+                    _nr_flag.parent.mkdir(parents=True, exist_ok=True)
+                    _nr_flag.write_text("no_redirect", encoding="utf-8")
+                    browser.close()
+                    return False
+                print("  [--auto] Post submitted successfully.")
 
             else:
                 # Semi-auto: hand off to the user

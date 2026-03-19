@@ -123,7 +123,7 @@ def post_to_instagram(asset_dir: Path, base_url: str):
         ]
     teaser_file = next((p for p in teaser_candidates if p.exists()), None)
 
-    image_names = ["layer.png", "3d_x.png", "3d_y.png"]
+    image_names = ["layer.png", "answer_3d_x.png", "answer_3d_y.png"]
     media_urls = []
 
     # layer.png FIRST — carousel cover (Instagram profile grid shows 1st slide)
@@ -142,7 +142,7 @@ def post_to_instagram(asset_dir: Path, base_url: str):
             print(f"  [Carousel] Using fallback video: {fallback_video.name}")
 
     # Remaining images (skip layer.png, already added)
-    for name in ["3d_x.png", "3d_y.png"]:
+    for name in ["answer_3d_x.png", "answer_3d_y.png"]:
         if (asset_dir / name).exists():
             media_urls.append({"type": "IMAGE", "url": f"{full_base_url}/{name}"})
 
