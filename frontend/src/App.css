@@ -1792,3 +1792,141 @@
   letter-spacing: 0.08em;
   text-shadow: 0 0 24px rgba(255, 200, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.6);
 }
+
+/* ── ASSEMBLY_INTRO: 散らばりピース収束演出 ─────────────────────── */
+
+.sns-assembly-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sns-assembly-piece {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-left: calc(var(--piece-offset, 36px) * -1);
+  margin-top: calc(var(--piece-offset, 36px) * -1);
+  animation: sns-assembly-gather 1.1s cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) both;
+}
+
+@keyframes sns-assembly-gather {
+  from {
+    transform: translate(var(--scatter-x, 0px), var(--scatter-y, 0px))
+               rotate(var(--scatter-r, 0deg))
+               scale(0.55);
+    opacity: 0;
+  }
+  40% { opacity: 1; }
+  to {
+    transform: translate(var(--land-x, 0px), var(--land-y, 0px)) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.sns-assembly-hook {
+  position: absolute;
+  bottom: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(22px, 4.5vw, 38px);
+  font-weight: 800;
+  color: #e6edf3;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.7);
+  animation: sns-hook-fadein 0.4s 0.9s ease-out both;
+}
+
+/* ── Tutorial overlay ───────────────────────────────────────────── */
+
+.sns-tutorial-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  animation: sns-tutorial-fadein 0.35s ease-out both;
+}
+
+.sns-tutorial-overlay--victory {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+@keyframes sns-tutorial-fadein {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.sns-tutorial-title {
+  font-size: clamp(32px, 8vw, 52px);
+  font-weight: 900;
+  color: #ffffff;
+  text-align: center;
+  letter-spacing: 0.02em;
+  text-shadow: 0 3px 16px rgba(0, 0, 0, 0.6);
+}
+
+.sns-tutorial-sub {
+  font-size: clamp(18px, 4.5vw, 28px);
+  font-weight: 700;
+  color: #e6edf3;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.sns-tutorial-step {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(20px, 5vw, 32px);
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 12px 28px;
+  border-radius: 40px;
+  animation: sns-tutorial-fadein 0.3s ease-out both;
+}
+
+.sns-tutorial-fit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(40px, 10vw, 64px);
+  font-weight: 900;
+  color: #4ade80;
+  text-shadow: 0 0 28px rgba(74, 222, 128, 0.7);
+  animation: sns-tutorial-fit-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: none;
+}
+
+@keyframes sns-tutorial-fit-pop {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  50%  { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+}
+
+.sns-tutorial-victory-text {
+  font-size: clamp(40px, 10vw, 64px);
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 3px 20px rgba(0, 0, 0, 0.5);
+}
+
+.sns-tutorial-victory-cta {
+  font-size: clamp(20px, 5vw, 32px);
+  font-weight: 700;
+  color: #fbbf24;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}

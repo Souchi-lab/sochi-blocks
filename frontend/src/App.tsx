@@ -37,7 +37,7 @@ function getParams() {
   const capture = mode === 'capture';
   const autoplay = params.get('autoplay') === '1';
   const snsMode = params.get('sns') === '1';
-  const snsVideoMode = (params.get('video_mode') as 'full_play' | 'teaser' | 'tutorial') ?? 'full_play';
+  const snsVideoMode = (params.get('video_mode') as 'full_play' | 'teaser' | 'tutorial' | 'assembly') ?? 'full_play';
   const angle = (params.get('angle') as CaptureAngle) ?? null;
   const initialDelayMs = autoplay ? (parseInt(params.get('delay') ?? '0', 10) || 0) : 0;
   const lang = params.get('lang') ?? 'ja';

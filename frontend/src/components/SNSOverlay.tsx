@@ -7,6 +7,7 @@ import { PieceShapeMini } from './PieceShapeMini';
 
 type Phase =
     | 'idle'
+    | 'assembly_intro'
     | 'intro'
     | 'float'
     | 'misplace'
@@ -14,7 +15,14 @@ type Phase =
     | 'snap'
     | 'settle'
     | 'tap_hint'
-    | 'victory';
+    | 'victory'
+    | 'tutorial_intro'
+    | 'tutorial_problem'
+    | 'tutorial_select'
+    | 'tutorial_rotate'
+    | 'tutorial_place'
+    | 'tutorial_fit'
+    | 'tutorial_victory';
 
 interface OverlayState {
     phase: Phase;
@@ -27,6 +35,8 @@ interface OverlayState {
     victoryReady: boolean;   // Playwright 用 selector
     tapHintShown: boolean;   // TAP TO PLAY 常時表示フラグ
     speedFlashKey: number;   // SPEED RUN フラッシュトリガー
+    tutorialLang: string;    // tutorial 言語 ('ja' | 'en')
+    tutorialFitKey: number;  // Fit! フラッシュリスタート用
 }
 
 const INITIAL: OverlayState = {
@@ -40,15 +50,58 @@ const INITIAL: OverlayState = {
     victoryReady: false,
     tapHintShown: false,
     speedFlashKey: 0,
+    tutorialLang: 'ja',
+    tutorialFitKey: 0,
 };
 
 // ── メインコンポーネント ──────────────────────────────────────────
+
+const SCATTER_POSITIONS = [
+    { x: -500, y: -900 },
+    { x:  -80, y: -940 },
+    { x:   80, y: -940 },
+    { x:  500, y: -900 },
+    { x: -640, y:    0 },
+    { x:  640, y:    0 },
+    { x: -420, y:  900 },
+    { x:  420, y:  900 },
+];
+
+// ピース数に応じたレイアウト設定
+function getAssemblyLayout(n: number): { cellSize: number; lands: { x: number; y: number }[] } {
+    if (n <= 2) return {
+        cellSize: 130,
+        lands: [{ x: -260, y: 0 }, { x: 260, y: 0 }],
+    };
+    if (n <= 4) return {
+        cellSize: 110,
+        lands: [
+            { x: -260, y: -250 }, { x: 260, y: -250 },
+            { x: -260, y:  250 }, { x: 260, y:  250 },
+        ],
+    };
+    if (n <= 6) return {
+        cellSize: 86,
+        lands: [
+            { x: -320, y: -220 }, { x: 0, y: -220 }, { x: 320, y: -220 },
+            { x: -320, y:  220 }, { x: 0, y:  220 }, { x: 320, y:  220 },
+        ],
+    };
+    // 7〜8ピース: 4×2グリッド (x間隔280px, cellSize60でmax4列=261px → ギリ収まる)
+    return {
+        cellSize: 60,
+        lands: [
+            { x: -420, y: -250 }, { x: -140, y: -250 }, { x: 140, y: -250 }, { x: 420, y: -250 },
+            { x: -420, y:  250 }, { x: -140, y:  250 }, { x: 140, y:  250 }, { x: 420, y:  250 },
+        ],
+    };
+}
 
 export function SNSOverlay({
     videoMode = 'full_play',
     removedPieces = [],
 }: {
-    videoMode?: 'full_play' | 'teaser';
+    videoMode?: 'full_play' | 'teaser' | 'assembly' | 'tutorial';
     removedPieces?: string[];
 }) {
     const [s, setS] = useState<OverlayState>(INITIAL);
@@ -71,6 +124,12 @@ export function SNSOverlay({
                 const next: OverlayState = { ...prev };
 
                 switch (phase) {
+                    case 'assembly_intro':
+                        next.phase = 'assembly_intro';
+                        next.hook = (d.hook as string) ?? '';
+                        next.total = (d.total as number) ?? 0;
+                        break;
+
                     case 'intro':
                         next.phase = 'intro';
                         next.label = (d.label as string) ?? '';
@@ -112,6 +171,55 @@ export function SNSOverlay({
                         next.tapHintShown = true;
                         break;
 
+                    case 'tutorial_intro':
+                        next.phase = 'tutorial_intro';
+                        next.tutorialLang = (d.lang as string) ?? 'ja';
+                        break;
+
+                    case 'tutorial_problem':
+                        next.phase = 'tutorial_problem';
+                        next.total = (d.total as number) ?? prev.total;
+                        next.tutorialLang = (d.lang as string) ?? prev.tutorialLang;
+                        break;
+
+                    case 'tutorial_select':
+                        next.phase = 'tutorial_select';
+                        next.pieceIdx = (d.pieceIdx as number) ?? prev.pieceIdx;
+                        next.total = (d.total as number) ?? prev.total;
+                        next.tutorialLang = (d.lang as string) ?? prev.tutorialLang;
+                        break;
+
+                    case 'tutorial_rotate':
+                        next.phase = 'tutorial_rotate';
+                        next.tutorialLang = (d.lang as string) ?? prev.tutorialLang;
+                        break;
+
+                    case 'tutorial_place':
+                        next.phase = 'tutorial_place';
+                        next.tutorialLang = (d.lang as string) ?? prev.tutorialLang;
+                        break;
+
+                    case 'tutorial_fit':
+                        next.phase = 'tutorial_fit';
+                        next.pieceIdx = (d.pieceIdx as number) ?? prev.pieceIdx;
+                        next.total = (d.total as number) ?? prev.total;
+                        next.tutorialFitKey = prev.tutorialFitKey + 1;
+                        break;
+
+                    case 'tutorial_victory': {
+                        next.phase = 'tutorial_victory';
+                        next.total = (d.total as number) ?? prev.total;
+                        next.tutorialLang = (d.lang as string) ?? prev.tutorialLang;
+                        next.victoryReady = false;
+                        starsTimerRef.current.forEach(clearTimeout);
+                        starsTimerRef.current = [];
+                        const tvDone = setTimeout(() => {
+                            setS(p => ({ ...p, victoryReady: true }));
+                        }, 2800);
+                        starsTimerRef.current.push(tvDone);
+                        break;
+                    }
+
                     case 'victory': {
                         next.phase = 'victory';
                         next.total = (d.total as number) ?? prev.total;
@@ -152,9 +260,10 @@ export function SNSOverlay({
         };
     }, []);
 
-    const { phase, pieceIdx, total, label, hook, flashKey, starsShown, victoryReady, tapHintShown, speedFlashKey } = s;
+    const { phase, pieceIdx, total, label, hook, flashKey, starsShown, victoryReady, tapHintShown, speedFlashKey, tutorialLang, tutorialFitKey } = s;
 
-    const showMain = phase !== 'idle' && phase !== 'victory';
+    const isTutorialPhase = phase.startsWith('tutorial_');
+    const showMain = phase !== 'idle' && phase !== 'assembly_intro' && phase !== 'victory' && !isTutorialPhase;
     const showVic = phase === 'victory';
     const pieceLabel = pieceIdx === 0 ? hook : `Piece ${pieceIdx + 1} of ${total}`;
     const showCta = victoryReady || (videoMode === 'teaser' && starsShown >= 1);
@@ -170,6 +279,37 @@ export function SNSOverlay({
 
     return (
         <div className={`sns-overlay${victoryReady ? ' victory-screen-done' : ''}`}>
+
+            {/* ── ASSEMBLY_INTRO: 散らばったピースが収束する冒頭演出 ── */}
+            {phase === 'assembly_intro' && removedPieces.length > 0 && (
+                <div className="sns-assembly-container">
+                    {(() => {
+                        const { cellSize, lands } = getAssemblyLayout(removedPieces.length);
+                        return removedPieces.map((p, i) => {
+                            const scatter = SCATTER_POSITIONS[i % SCATTER_POSITIONS.length];
+                            const land    = lands[i % lands.length];
+                            return (
+                                <div
+                                    key={p}
+                                    className="sns-assembly-piece"
+                                    style={{
+                                        '--scatter-x': `${scatter.x}px`,
+                                        '--scatter-y': `${scatter.y}px`,
+                                        '--scatter-r': `${(i % 2 === 0 ? -1 : 1) * (15 + i * 8)}deg`,
+                                        '--land-x': `${land.x}px`,
+                                        '--land-y': `${land.y}px`,
+                                        '--delay': `${i * 0.09}s`,
+                                        '--piece-offset': `${Math.round(cellSize * 1.3)}px`,
+                                    } as React.CSSProperties}
+                                >
+                                    <PieceShapeMini piece={p} cellSize={cellSize} />
+                                </div>
+                            );
+                        });
+                    })()}
+                    <div className="sns-assembly-hook">{hook || 'Can you solve this?'}</div>
+                </div>
+            )}
 
             {/* ── ウォーターマーク (常時) ──────────────────────────── */}
             {showMain && (
@@ -256,6 +396,52 @@ export function SNSOverlay({
             {/* ── B-1: TAP TO PLAY 常時バッジ (tap_hint 以降) ──────── */}
             {tapHintShown && phase !== 'tap_hint' && showMain && (
                 <div className="sns-tap-persistent">TAP TO PLAY 🎮</div>
+            )}
+
+            {/* ── TUTORIAL フェーズ群 ───────────────────────────────── */}
+            {phase === 'tutorial_intro' && (
+                <div className="sns-tutorial-overlay">
+                    <div className="sns-tutorial-title">
+                        {tutorialLang === 'en' ? 'How to Play' : '遊び方'}
+                    </div>
+                    <div className="sns-tutorial-sub">
+                        {tutorialLang === 'en' ? 'Learn in 30s!' : '30秒でわかる！'}
+                    </div>
+                </div>
+            )}
+
+            {phase === 'tutorial_problem' && (
+                <div className="sns-tutorial-overlay">
+                    <div className="sns-tutorial-title">
+                        {tutorialLang === 'en' ? 'Solve this!' : 'このパズルを解こう'}
+                    </div>
+                    <div className="sns-tutorial-sub">
+                        {tutorialLang === 'en' ? `${total} pieces` : `ピース × ${total}`}
+                    </div>
+                </div>
+            )}
+
+            {(phase === 'tutorial_select' || phase === 'tutorial_rotate' || phase === 'tutorial_place') && (
+                <div className="sns-tutorial-step">
+                    {phase === 'tutorial_select' && (tutorialLang === 'en' ? '① Select a piece 👇' : '① ピースを選ぶ 👇')}
+                    {phase === 'tutorial_rotate' && (tutorialLang === 'en' ? '② Rotate it 🔄' : '② 向きを変える 🔄')}
+                    {phase === 'tutorial_place'  && (tutorialLang === 'en' ? '③ Set the position ✅' : '③ 位置を決める ✅')}
+                </div>
+            )}
+
+            {phase === 'tutorial_fit' && (
+                <div key={`tf-${tutorialFitKey}`} className="sns-tutorial-fit">
+                    Fit! ✓
+                </div>
+            )}
+
+            {phase === 'tutorial_victory' && (
+                <div className="sns-tutorial-overlay sns-tutorial-overlay--victory">
+                    <div className="sns-tutorial-victory-text">Solved! 🎉</div>
+                    <div className="sns-tutorial-victory-cta">
+                        {tutorialLang === 'en' ? 'Give it a try!' : 'あなたも挑戦！'}
+                    </div>
+                </div>
             )}
 
             {/* ── VICTORY 画面 ──────────────────────────────────────── */}

@@ -18,37 +18,51 @@ async function generateVideo() {
     // positional[1] に 'teaser' や 'full_play' が直接来るケースにも対応
     const modeIdx = rawArgs.indexOf('--mode');
     const videoMode = (modeIdx >= 0 ? rawArgs[modeIdx + 1] : '')
-        || positional.find(a => a === 'teaser' || a === 'full_play')
+        || positional.find(a => a === 'teaser' || a === 'full_play' || a === 'assembly' || a === 'tutorial')
         || 'full_play';
-    if (videoMode !== 'full_play' && videoMode !== 'teaser') {
-        console.error(`❌ Unknown --mode: "${videoMode}". Use "full_play" or "teaser".`);
+    if (!['full_play', 'teaser', 'assembly', 'tutorial'].includes(videoMode)) {
+        console.error(`❌ Unknown --mode: "${videoMode}". Use "full_play", "teaser", "assembly", or "tutorial".`);
+        process.exit(1);
+    }
+
+    const langIdx = rawArgs.indexOf('--lang');
+    const lang = (langIdx >= 0 ? rawArgs[langIdx + 1] : '') || 'ja';
+    if (videoMode === 'tutorial' && lang !== 'ja' && lang !== 'en') {
+        console.error(`❌ Unknown --lang: "${lang}". Use "ja" or "en".`);
         process.exit(1);
     }
 
     // sns=1 を付与して SNS 用のオーバーレイとカメラリグを有効化
-    // teaser モード時は video_mode=teaser を追加
-    const url = `http://localhost:5173/viewer.html?puzzle_id=${puzzleId}&autoplay=1&sns=1${videoMode === 'teaser' ? '&video_mode=teaser' : ''}`;
+    const videoModeParam = videoMode !== 'full_play' ? `&video_mode=${videoMode}` : '';
+    const langParam = videoMode === 'tutorial' ? `&lang=${lang}` : '';
+    const url = `http://localhost:5173/viewer.html?puzzle_id=${puzzleId}&autoplay=1&sns=1${videoModeParam}${langParam}`;
     const outputDir = path.join(__dirname, '..', 'public', 'sns_videos');
 
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const suffix = videoMode === 'teaser' ? '_teaser' : '_full';
+    const suffix = videoMode === 'teaser' ? '_teaser'
+        : videoMode === 'assembly' ? '_assembly'
+        : videoMode === 'tutorial' ? `_tutorial_${lang}`
+        : '_full';
     const webmPath = path.join(outputDir, `${puzzleId}${suffix}.webm`);
     const mp4Path = path.join(outputDir, `${puzzleId}${suffix}.mp4`);
 
-    console.log(`🎬 Launching browser for puzzle: ${puzzleId} [mode: ${videoMode}]`);
+    const langLabel = videoMode === 'tutorial' ? ` lang: ${lang}` : '';
+    console.log(`🎬 Launching browser for puzzle: ${puzzleId} [mode: ${videoMode}${langLabel}]`);
     console.log(`🌐 URL: ${url}`);
 
     const browser = await chromium.launch({ headless: true });
     const contextCreateTime = Date.now();
-    // SNS 用に 9:16 (1080x1920) の縦長動画として記録
+    // tutorial はモバイルサイズ (390x844)、それ以外は SNS 縦長 (1080x1920)
+    const vpWidth  = videoMode === 'tutorial' ? 390  : 1080;
+    const vpHeight = videoMode === 'tutorial' ? 844  : 1920;
     const context = await browser.newContext({
-        viewport: { width: 1080, height: 1920 },
+        viewport: { width: vpWidth, height: vpHeight },
         recordVideo: {
             dir: outputDir,
-            size: { width: 1080, height: 1920 }
+            size: { width: vpWidth, height: vpHeight }
         }
     });
 
