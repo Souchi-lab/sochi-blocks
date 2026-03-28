@@ -217,6 +217,52 @@
       color: #555;
     }
 
+    /* ── Goal banner ── */
+    .goal-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #fff;
+      border-radius: 12px;
+      border-left: 4px solid #1a7f45;
+      padding: 16px 18px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+      margin-bottom: 24px;
+    }
+
+    .goal-banner-icon {
+      font-size: 1.8rem;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .goal-banner-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #1a7f45;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .goal-banner-text {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #1e1e1e;
+      line-height: 1.4;
+    }
+
+    /* ── Video supplement ── */
+    .video-supplement-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #999;
+      text-transform: uppercase;
+      margin: 36px 0 14px;
+      text-align: center;
+    }
+
     /* ── CTA ── */
     .cta-section {
       margin-top: 40px;
@@ -258,11 +304,73 @@
       <span class="en">How to Play</span>
     </h1>
     <p class="page-subtitle">
-      <span class="ja">動画でルールと操作を確認しよう。30秒で全部わかる！</span>
-      <span class="en">Watch the 30-second tutorial to learn the rules and controls.</span>
+      <span class="ja">3ステップで始められます。全部覚えなくて大丈夫。</span>
+      <span class="en">Just 3 steps to get started. No need to memorize everything.</span>
     </p>
 
-    <!-- ── Video block ── -->
+    <!-- ── Goal banner ── -->
+    <div class="goal-banner">
+      <div class="goal-banner-icon">🎯</div>
+      <div>
+        <div class="goal-banner-label ja">ゴール</div>
+        <div class="goal-banner-label en">Goal</div>
+        <div class="goal-banner-text ja">すべての空きスペースにピースをはめたらクリア</div>
+        <div class="goal-banner-text en">Fit all pieces into the empty spaces to win</div>
+      </div>
+    </div>
+
+    <!-- ── Steps ── -->
+    <div class="section-title ja">始め方</div>
+    <div class="section-title en">How to Start</div>
+
+    <div class="steps">
+      <div class="step-row">
+        <div class="step-circle">①</div>
+        <div class="step-info">
+          <div class="step-head ja">ピースを選ぶ</div>
+          <div class="step-head en">Select a Piece</div>
+          <div class="step-body ja">画面下のトレイからピースをタップして選びます。</div>
+          <div class="step-body en">Tap any piece in the tray at the bottom to select it.</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-circle">②</div>
+        <div class="step-info">
+          <div class="step-head ja">🔄 向きを回す</div>
+          <div class="step-head en">🔄 Rotate</div>
+          <div class="step-body ja">
+            <kbd>←</kbd> <kbd>→</kbd>（回転）で空きスペースに合う向きを探します。
+            <span class="step-pc">PC: <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> キーでも回転できます</span>
+          </div>
+          <div class="step-body en">
+            Tap <kbd>←</kbd> <kbd>→</kbd> (rotate) to find the right orientation.
+            <span class="step-pc">PC: Use <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> keys to rotate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-circle">③</div>
+        <div class="step-info">
+          <div class="step-head ja">📍 置く場所を決める</div>
+          <div class="step-head en">📍 Place It</div>
+          <div class="step-body ja">
+            <kbd>←</kbd> <kbd>→</kbd>（カーソル移動）で場所を選び、<kbd>Set</kbd> をタップして確定。全ピースを埋めたらクリア！
+            <span class="step-pc">PC: 3D 上をクリックしても配置できます</span>
+          </div>
+          <div class="step-body en">
+            Tap <kbd>←</kbd> <kbd>→</kbd> (move cursor) to choose a spot, then tap <kbd>Set</kbd>. Fill all pieces to win!
+            <span class="step-pc">PC: You can also click directly on the 3D grid</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Video (supplement) ── -->
+    <div class="video-supplement-title ja">動画でも確認できます（任意）</div>
+    <div class="video-supplement-title en">Watch the Tutorial (optional)</div>
+
     <div class="video-block">
       <div class="video-tabs">
         <button class="video-tab active" onclick="switchLangVideo('ja')" id="tab-ja">JP</button>
@@ -283,60 +391,6 @@
                  poster="" preload="metadata">
             <source src="./sns_videos/tutorial_en.mp4" type="video/mp4" />
           </video>
-        </div>
-      </div>
-      <p style="font-size:0.75rem;color:#aaa;margin-top:4px;" class="ja">
-        ※ 動画がない場合は下の手順を参考にしてください
-      </p>
-      <p style="font-size:0.75rem;color:#aaa;margin-top:4px;" class="en">
-        ※ If the video is unavailable, follow the steps below
-      </p>
-    </div>
-
-    <!-- ── Steps ── -->
-    <div class="section-title ja">操作手順</div>
-    <div class="section-title en">Steps</div>
-
-    <div class="steps">
-      <div class="step-row">
-        <div class="step-circle">①</div>
-        <div class="step-info">
-          <div class="step-head ja">ピースを選ぶ</div>
-          <div class="step-head en">Select a Piece</div>
-          <div class="step-body ja">画面下のトレイからピースをタップして選びます。</div>
-          <div class="step-body en">Tap any piece in the tray at the bottom to select it.</div>
-        </div>
-      </div>
-
-      <div class="step-row">
-        <div class="step-circle">②</div>
-        <div class="step-info">
-          <div class="step-head ja">向きを変える</div>
-          <div class="step-head en">Rotate It</div>
-          <div class="step-body ja">
-            <kbd>←</kbd> <kbd>→</kbd> ボタンで回転させて、空きスペースに合う向きを探します。
-            <span class="step-pc">PC: <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> キーも使えます</span>
-          </div>
-          <div class="step-body en">
-            Tap <kbd>←</kbd> <kbd>→</kbd> to rotate the piece and find the right fit.
-            <span class="step-pc">PC: Use <kbd>WASD</kbd> / <kbd>Q</kbd><kbd>E</kbd> keys to rotate</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="step-row">
-        <div class="step-circle">③</div>
-        <div class="step-info">
-          <div class="step-head ja">配置して確定</div>
-          <div class="step-head en">Place It</div>
-          <div class="step-body ja">
-            <kbd>←</kbd> <kbd>→</kbd> で位置を選び、<kbd>Set</kbd> をタップして確定します。全ピースを埋めたらクリア！
-            <span class="step-pc">PC: 3D 上をクリックしても配置できます</span>
-          </div>
-          <div class="step-body en">
-            Use <kbd>←</kbd> <kbd>→</kbd> to choose a position, then tap <kbd>Set</kbd>. Fill all pieces to win!
-            <span class="step-pc">PC: You can also click directly on the 3D grid</span>
-          </div>
         </div>
       </div>
     </div>
