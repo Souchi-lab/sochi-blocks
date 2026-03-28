@@ -648,8 +648,8 @@
   <div class="hero">
     <div class="hero-title">SoChi BLOCKS</div>
     <div class="hero-tagline">think in 3D</div>
-    <p class="hero-desc ja">3Dで考えるペントミノパズル</p>
-    <p class="hero-desc en">A 3D pentomino puzzle</p>
+    <p class="hero-desc ja">3Dで考えるペントミノパズル。全ピースを埋めたらクリア。</p>
+    <p class="hero-desc en">A 3D pentomino puzzle. Fit all pieces to win.</p>
     <div class="hero-cta-group">
       <a id="hero-cta-primary" class="hero-cta-primary" href="#" aria-disabled="true">
         <span class="ja">まず1問やってみる →</span>
@@ -663,29 +663,6 @@
   </div>
 
   <div class="content">
-
-    <!-- ── [Task 1-2] はじめての方へ ── -->
-    <div class="first-puzzle-section">
-      <div class="section-title">
-        <span class="ja">はじめての方へ</span>
-        <span class="en">For First-Timers</span>
-      </div>
-      <a id="first-puzzle-card" class="first-puzzle-card" href="#" aria-disabled="true">
-        <div class="fp-icon">🧩</div>
-        <div class="fp-info">
-          <div class="fp-label">Easy</div>
-          <div class="fp-title">
-            <span class="ja">最初の1問を解いてみよう</span>
-            <span class="en">Start with your first puzzle</span>
-          </div>
-          <div class="fp-meta">
-            <span class="ja">ピース2個・目安1〜3分</span>
-            <span class="en">2 pieces missing · 1–3 min</span>
-          </div>
-        </div>
-        <div class="fp-arrow">›</div>
-      </a>
-    </div>
 
     <!-- ── [Task 1-3 / Task 1-4] How to play ── -->
     <div id="how-to-play">
@@ -807,8 +784,8 @@
     </div>
     <!-- [Task 5-1] 進捗サマリ -->
     <div id="progress-summary" style="display:none;" class="progress-summary">
-      <span class="progress-label ja">クリア済み: <span id="prog-total">0</span> / <span id="prog-max">0</span> 問</span>
-      <span class="progress-label en">Cleared: <span id="prog-total-en">0</span> / <span id="prog-max-en">0</span></span>
+      <span class="progress-label ja">クリア済み: <span id="prog-total"></span> / <span id="prog-max"></span> 問</span>
+      <span class="progress-label en">Cleared: <span id="prog-total-en"></span> / <span id="prog-max-en"></span></span>
       <div class="progress-chips" id="prog-chips"></div>
     </div>
     <!-- [Task 5-2] 今日の1問 -->
@@ -922,13 +899,6 @@
         primary.dataset.puzzleId = easyId;
       }
 
-      const card = document.getElementById('first-puzzle-card');
-      if (card) {
-        card.href = url;
-        card.removeAttribute('aria-disabled');
-        card.dataset.difficulty = 'Easy';
-        card.dataset.puzzleId = easyId;
-      }
     }
 
     // ── Puzzle list ──────────────────────────────────────────────
