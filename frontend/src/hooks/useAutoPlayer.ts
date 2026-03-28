@@ -86,7 +86,7 @@ export function useAutoPlayer({
 }: {
     autoplay: boolean;
     snsMode?: boolean;
-    snsVideoMode?: 'full_play' | 'teaser' | 'tutorial';
+    snsVideoMode?: 'full_play' | 'teaser' | 'tutorial' | 'assembly';
     data: PuzzleData | null;
     gameState: GameState;
     selectPiece: (p: string) => void;
@@ -128,6 +128,7 @@ export function useAutoPlayer({
 
             const isTeaser   = snsMode && snsVideoMode === 'teaser';
             const isTutorial = snsVideoMode === 'tutorial';
+            const isAssembly = snsMode && snsVideoMode === 'assembly';
 
             // ── Intro ──────────────────────────────────────────────
             if (snsMode) {
@@ -138,6 +139,8 @@ export function useAutoPlayer({
                     await sleep(TUTORIAL.problemHold);
                 } else {
                     console.log(`[AutoPlayer][SNS] ${diff.label} / ${totalPieces} pieces / mode: ${snsVideoMode}`);
+                    snsDispatch('assembly_intro', { total: totalPieces, hook: diff.hook });
+                    await sleep(isTeaser ? 1200 : 1800);
                     snsDispatch('intro', { label: diff.label, total: totalPieces, hook: diff.hook });
                     await sleep(isTeaser ? 700 : 1000);
                 }
@@ -159,7 +162,7 @@ export function useAutoPlayer({
 
                 if (snsMode) {
                     if (isTutorial) {
-                        snsDispatch('tutorial_select', { pieceIdx: i, total: totalPieces, lang });
+                        // step labels (select/rotate/place) intentionally omitted
                     } else {
                         const roleTag = isTeaserDrama ? ' [DRAMA]' : isTeaserFast ? ' [FAST]' : isTeaserLast ? ' [LAST]' : '';
                         console.log(`[AutoPlayer][SNS] Piece ${pieceToPlay} (${i + 1}/${totalPieces})${roleTag}`);
@@ -184,7 +187,6 @@ export function useAutoPlayer({
                 );
 
                 // ── Rotate ────────────────────────────────────────
-                if (isTutorial) snsDispatch('tutorial_rotate', { lang });
 
                 const uniqueRots = uniqueRotationIndices(pieceShape);
                 const thinkCount =
@@ -265,7 +267,6 @@ export function useAutoPlayer({
                 }
 
                 // ── Place ─────────────────────────────────────────
-                if (isTutorial) snsDispatch('tutorial_place', { lang });
 
                 const finalAnchors = validAnchors(pieceShape, solutionRot, allEmptyCells);
                 const finalKeys = finalAnchors.map(a => `${a[0]},${a[1]},${a[2]}`).sort();

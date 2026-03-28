@@ -81,11 +81,12 @@
 }
 
 .tut-problem-text {
-    font-size: clamp(26px, 5.5vw, 48px);
+    font-size: clamp(20px, 5vw, 48px);
     font-weight: 800;
     color: #ffffff;
     letter-spacing: 0.02em;
     text-align: center;
+    white-space: nowrap;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
 }
 
