@@ -1,9 +1,3 @@
-🧩 SoChi BLOCKS — THINK IN 3D.
+30秒で解けたら天才！ 🧩
 
-Puzzle: 20260329_002
-Difficulty: Medium
-
-Can you solve this in 3D?
-Try it here: https://souchi-lab.github.io/sochi-blocks/share/20260329_002.html 🧩
-
-#SoChiBLOCKS #3dpuzzle #thinkin3d
+#SoChiBlocks #ブロックパズル #論理パズル #脳トレ
