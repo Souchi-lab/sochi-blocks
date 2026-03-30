@@ -54,10 +54,10 @@ PC_DESC: dict[str, str] = {
 }
 
 HASHTAGS: dict[str, str] = {
-    "Easy":    "#SoChiBlocks #ブロックパズル #脳トレ",
-    "Medium":  "#SoChiBlocks #ブロックパズル #脳トレ",
-    "Hard":    "#SoChiBlocks #ブロックパズル #難問",
-    "Hardest": "#SoChiBlocks #ブロックパズル #難問",
+    "Easy":    "#SoChiBlocks #ブロックパズル #論理パズル #脳トレ",
+    "Medium":  "#SoChiBlocks #ブロックパズル #論理パズル #脳トレ",
+    "Hard":    "#SoChiBlocks #ブロックパズル #論理パズル #難問",
+    "Hardest": "#SoChiBlocks #ブロックパズル #論理パズル #難問",
 }
 
 # ---------------------------------------------------------------------------
@@ -147,7 +147,7 @@ def generate_captions(puzzle_dir: Path, puzzle_id: str, difficulty: str, pattern
 
     # reply2
     if pattern in ("P-A", "P-C"):
-        reply2 = f"もっと遊ぶ → {url}\n\n全レベル無料 → プロフURLから\n#SoChiBlocks #ブロックパズル"
+        reply2 = f"もっと遊ぶ → {url}\n\n全レベル無料 → プロフURLから\n#SoChiBlocks #ブロックパズル #論理パズル"
         (puzzle_dir / "reply2_pa.txt").write_text(reply2, encoding="utf-8")
     else:  # P-B
         reply2 = f"全レベル無料 → プロフURLから\n{tags}"

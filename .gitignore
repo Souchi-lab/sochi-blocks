@@ -60,3 +60,4 @@ backend/scripts/*.mp4
 
 # Script logs
 scripts/logs/
+scripts/x_post_state.json

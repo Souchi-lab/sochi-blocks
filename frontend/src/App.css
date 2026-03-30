@@ -460,10 +460,18 @@
 @media (max-width: 767px) {
   /* 内側パネルがスクロールを担う（overflow-x は tray-pieces に任せる） */
   .missing-section {
-    overflow-y: auto;
+    overflow-y: visible;
     overflow-x: hidden;
-    flex: 1;
-    min-height: 0;
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+
+  .missing-overlay {
+    padding: 10px 16px 8px;
+  }
+
+  .piece-tray {
+    padding: 10px 16px 8px;
   }
 
   /* ピース選択中: トレイ・ガイドを非表示、プレビューを全面に */
@@ -486,13 +494,54 @@
   to   { opacity: 1; }
 }
 
-/* ── [Task 3-1] Controls hint group ─────────────────────── */
+/* [Task 3-1] Controls hint groups */
+.controls-hint-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: stretch;
+  padding: 4px 0;
+}
+
 .controls-hint-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   align-self: stretch;
-  padding: 4px 0;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.controls-hint-heading {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f0f0f0;
+}
+
+.controls-current-cue {
+  font-family: 'Arial', sans-serif;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f3f3;
+}
+
+.controls-current-cue--place {
+  background: rgba(92, 184, 92, 0.16);
+  color: #dff5df;
+}
+
+.controls-current-cue--rotate {
+  background: rgba(80, 140, 255, 0.16);
+  color: #dbe7ff;
 }
 
 .controls-hint-row {
@@ -509,11 +558,11 @@
   letter-spacing: 0.08em;
   color: #aaa;
   text-transform: uppercase;
-  min-width: 3.2em;
+  min-width: 4.6em;
 }
 
 @media (pointer: coarse) {
-  .controls-hint-group { display: none; }
+  .controls-hint-groups { display: none; }
 }
 
 /* ── [Task 3-2] Fit status banner ───────────────────────── */

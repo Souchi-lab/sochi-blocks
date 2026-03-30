@@ -117,8 +117,9 @@ def post_to_instagram(asset_dir: Path, base_url: str):
     teaser_candidates = []
     if puzzle_id:
         teaser_candidates = [
-            sns_dir / f"{puzzle_id}_teaser.mp4",
+            sns_dir / f"{puzzle_id}_instagram.mp4",
             sns_dir / f"{puzzle_id}_full.mp4",
+            sns_dir / f"{puzzle_id}_teaser.mp4",
             sns_dir / f"{puzzle_id}.mp4",
         ]
     teaser_file = next((p for p in teaser_candidates if p.exists()), None)

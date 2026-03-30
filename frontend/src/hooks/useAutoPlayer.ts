@@ -128,7 +128,6 @@ export function useAutoPlayer({
 
             const isTeaser   = snsMode && snsVideoMode === 'teaser';
             const isTutorial = snsVideoMode === 'tutorial';
-            const isAssembly = snsMode && snsVideoMode === 'assembly';
 
             // ── Intro ──────────────────────────────────────────────
             if (snsMode) {
