@@ -16,7 +16,7 @@ echo.
 
 REM ── パズル生成 → カルーセル投稿（Reel は run_reel_publish.bat で別途実行） ──
 echo [1/1] Instagram カルーセル投稿中...
-poetry run python scripts/auto_publish.py --all --instagram
+poetry run python scripts/auto_publish.py --all --instagram --twitter --tiktok --tiktok-auto
 if %ERRORLEVEL% neq 0 (
     echo.
     echo [ERROR] 投稿に失敗したパズルがあります。ログを確認してください。

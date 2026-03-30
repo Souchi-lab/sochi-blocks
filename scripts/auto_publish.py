@@ -28,6 +28,7 @@ import subprocess as _sp
 import sys
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 from pathlib import Path
 import time
 import urllib.request
@@ -52,8 +53,9 @@ DOCS_DIR = PROJECT_ROOT / "docs"
 PAGES_BASE_URL = "https://souchi-lab.github.io/sochi-blocks"
 
 # --- Import from sibling ---
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from generate_instagram_images import (
+# Insert project root to sys.path so 'scripts.*' imports work at runtime
+sys.path.insert(0, str(PROJECT_ROOT))
+from scripts.generate_instagram_images import (
     generate_layer_image,
     capture_3d_images,
     load_piece_colors,
@@ -372,16 +374,26 @@ def _trim_for_sns(pub_id: str, sns_dir: Path) -> None:
         print(f"  [SNS trim] _full.mp4 not found, skipping trim step.")
         return
 
+    # Check for BGM
+    bgm_file = PROJECT_ROOT / "assets" / "bgm.mp3"
+    has_bgm = bgm_file.exists()
+
     # TikTok cut: Pattern B (0-8s, no text overlay — current default)
     tiktok_mp4 = sns_dir / f"{pub_id}_tiktok.mp4"
     if not tiktok_mp4.exists():
         try:
-            _sp.run(
-                ["ffmpeg", "-y", "-i", str(full_mp4),
-                 "-t", "8", "-c", "copy", str(tiktok_mp4)],
-                check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
-            )
-            print(f"  [OK] TikTok cut Pattern B (0-8s, no text) -> {tiktok_mp4.name}")
+            cmd = ["ffmpeg", "-y", "-i", str(full_mp4)]
+            if has_bgm:
+                cmd.extend(["-stream_loop", "-1", "-i", str(bgm_file)])
+            cmd.extend(["-t", "8"])
+            if has_bgm:
+                cmd.extend(["-c:v", "copy", "-c:a", "aac", "-map", "0:v:0", "-map", "1:a:0", "-shortest"])
+            else:
+                cmd.extend(["-c", "copy"])
+            cmd.append(str(tiktok_mp4))
+
+            _sp.run(cmd, check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+            print(f"  [OK] TikTok cut Pattern B (0-8s{' + BGM' if has_bgm else ''}) -> {tiktok_mp4.name}")
         except (FileNotFoundError, _sp.CalledProcessError) as e:
             print(f"  [WARN] TikTok trim failed (ffmpeg required): {e}")
 
@@ -391,36 +403,52 @@ def _trim_for_sns(pub_id: str, sns_dir: Path) -> None:
         tiktok_A_mp4 = sns_dir / f"{pub_id}_tiktok_A.mp4"
         if not tiktok_A_mp4.exists():
             try:
-                _sp.run(
-                    ["ffmpeg", "-y", "-i", str(full_mp4),
-                     "-t", "8",
-                     "-vf", (
-                         "drawtext="
-                         "text='Can you solve this?':"
-                         "fontfile='C\\:/Windows/Fonts/arial.ttf':"
-                         "fontsize=48:"
-                         "fontcolor=white:"
-                         "x=(w-text_w)/2:"
-                         "y=60:"
-                         "shadowx=2:shadowy=2:"
-                         "enable='between(t,0.5,3.0)'"
-                     ),
-                     str(tiktok_A_mp4)],
-                    check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
-                )
-                print(f"  [OK] TikTok cut Pattern A (drawtext) -> {tiktok_A_mp4.name}")
+                cmd = ["ffmpeg", "-y", "-i", str(full_mp4)]
+                if has_bgm:
+                    cmd.extend(["-stream_loop", "-1", "-i", str(bgm_file)])
+                cmd.extend(["-t", "8"])
+                cmd.extend([
+                    "-vf", (
+                        "drawtext="
+                        "text='Can you solve this?':"
+                        "fontfile='C\\:/Windows/Fonts/arial.ttf':"
+                        "fontsize=48:"
+                        "fontcolor=white:"
+                        "x=(w-text_w)/2:"
+                        "y=60:"
+                        "shadowx=2:shadowy=2:"
+                        "enable='between(t,0.5,3.0)'"
+                    )
+                ])
+                if has_bgm:
+                    cmd.extend(["-c:a", "aac", "-map", "0:v:0", "-map", "1:a:0", "-shortest"])
+                cmd.append(str(tiktok_A_mp4))
+
+                _sp.run(cmd, check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+                print(f"  [OK] TikTok cut Pattern A (drawtext{' + BGM' if has_bgm else ''}) -> {tiktok_A_mp4.name}")
             except (FileNotFoundError, _sp.CalledProcessError) as e:
                 print(f"  [WARN] TikTok Pattern A trim failed: {e}")
                 print(f"  [WARN] Check ffmpeg drawtext support. Pattern A video not created.")
 
-    # Instagram cut: full video (same as _full.mp4, copy for explicit naming)
+    # Instagram cut: full video (same as _full.mp4, copy for explicit naming, or mix BGM)
     instagram_mp4 = sns_dir / f"{pub_id}_instagram.mp4"
     if not instagram_mp4.exists():
         try:
-            _shutil.copy2(str(full_mp4), str(instagram_mp4))
-            print(f"  [OK] Instagram video (full) -> {instagram_mp4.name}")
+            if has_bgm:
+                cmd = [
+                    "ffmpeg", "-y", "-i", str(full_mp4),
+                    "-stream_loop", "-1", "-i", str(bgm_file),
+                    "-c:v", "copy", "-c:a", "aac",
+                    "-map", "0:v:0", "-map", "1:a:0", "-shortest",
+                    str(instagram_mp4)
+                ]
+                _sp.run(cmd, check=True, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+                print(f"  [OK] Instagram video (full + BGM) -> {instagram_mp4.name}")
+            else:
+                _shutil.copy2(str(full_mp4), str(instagram_mp4))
+                print(f"  [OK] Instagram video (full, no BGM) -> {instagram_mp4.name}")
         except Exception as e:
-            print(f"  [WARN] Instagram video copy failed: {e}")
+            print(f"  [WARN] Instagram video preparation failed: {e}")
 
 
 def publish_one(engine, difficulty: str, seq_number: int | None = None):
@@ -598,18 +626,20 @@ def main():
         help="Single shared puzzle mode: generate 1 puzzle and share it across enabled platforms (requires --difficulty)",
     )
     parser.add_argument("--dir", help="Manual directory for posting (skips generation)")
-    parser.add_argument("--twitter", action="store_true", help="Post results to Twitter (X)")
+    parser.add_argument("--twitter", action="store_true", default=True, help="Post results to Twitter (X) [Default: True]")
+    parser.add_argument("--no-twitter", action="store_false", dest="twitter", help="Disable Twitter post")
     parser.add_argument("--instagram", action="store_true", help="Post Instagram Carousel (backward compat)")
     parser.add_argument("--also-reel", action="store_true", help="Also post Reel (with --instagram, backward compat)")
     parser.add_argument("--instagram-reel", action="store_true",
                         help="[Instagram Reel] Brand exposure — full video (0-12s) with answer")
     parser.add_argument("--instagram-carousel", action="store_true",
                         help="[Instagram Carousel] Puzzle catalog — layer.png required as cover")
-    parser.add_argument("--tiktok", action="store_true",
-                        help="[TikTok] Discovery — prepare post via browser automation (Playwright)")
-    parser.add_argument("--tiktok-auto", action="store_true",
-                        help="[TikTok] Auto-click Post button (requires --tiktok). "
-                             "Omit to keep semi-auto (manual Post click) as fallback.")
+    parser.add_argument("--tiktok", action="store_true", default=True,
+                        help="[TikTok] Discovery [Default: True]")
+    parser.add_argument("--no-tiktok", action="store_false", dest="tiktok", help="Disable TikTok post")
+    parser.add_argument("--tiktok-auto", action="store_true", default=True,
+                        help="[TikTok] Auto-click Post [Default: True]")
+    parser.add_argument("--no-tiktok-auto", action="store_false", dest="tiktok_auto", help="Disable TikTok auto-click")
     parser.add_argument("--dry-run", action="store_true",
                         help="Show what would be posted to each platform without actually posting")
     args = parser.parse_args()
@@ -627,7 +657,7 @@ def main():
         parser.error("Specify --difficulty, --shared-one --difficulty, --all, or --dir")
 
     engine = get_engine()
-    results = []
+    results: list[dict[str, Any]] = []
 
     if args.all:
         print("\n[Mode] multi-puzzle batch mode (--all)")
@@ -783,10 +813,32 @@ def main():
     if args.twitter:
         date_str = Path(results[0]["img_dir"]).parent.name
         print(f"\n  [Twitter/X] {'[DryRun] ' if args.dry_run else ''}Posting via auto_post_x_daily.py (date={date_str}) ...")
-        cmd = ["poetry", "run", "python", "scripts/auto_post_x_daily.py", "--date", date_str]
-        if args.dry_run:
-            cmd.append("--dry-run")
-        _sp.run(cmd, cwd=str(PROJECT_ROOT), check=False)
+        
+        # Check for pre-existing session error flag
+        _twitter_session_flag = PROJECT_ROOT / "scripts" / "logs" / "twitter_session_error.flag"
+        if _twitter_session_flag.exists():
+            print(f"  [Twitter/X] ERROR: Session is flagged as expired. Please refresh x_cookies.json.")
+            _append_twitter_log("ALL", "error:session_expired")
+        else:
+            cmd = ["poetry", "run", "python", "scripts/auto_post_x_daily.py", "--date", date_str]
+            if args.dry_run:
+                cmd.append("--dry-run")
+            
+            _proc = _sp.run(cmd, cwd=str(PROJECT_ROOT), check=False)
+            if _proc.returncode == 0:
+                # Success! Clear flags if they exist
+                _nr_flag = PROJECT_ROOT / "scripts" / "logs" / "twitter_no_confirm.flag"
+                for f in [_twitter_session_flag, _nr_flag]:
+                    if f.exists():
+                        f.unlink()
+            else:
+                # Check if it was a session error during this run
+                if _twitter_session_flag.exists():
+                    print(f"  [Twitter/X] ERROR: Session expired during post. Please refresh x_cookies.json.")
+                    _append_twitter_log("ALL", "error:session_expired")
+                else:
+                    print(f"  [Twitter/X] ERROR: auto_post_x_daily.py failed (exit={_proc.returncode})")
+                    _append_twitter_log("ALL", f"error:exit({_proc.returncode})")
 
     # Instagram publish
     if args.instagram:
@@ -798,6 +850,7 @@ def main():
                 print(f"    {r['code']}: layer.png + answer_3d_x.png + answer_3d_y.png | caption={caption_path.name if caption_path else 'none'}")
         else:
             print("\n  Posting to Instagram...")
+            pending_instagram = []
             # First, ensure at least one asset is live on GitHub Pages
             # The Instagram API requires media to be publicly accessible via URL.
             # Since we just pushed to GitHub Pages, we wait a bit for it to be live.
@@ -825,7 +878,6 @@ def main():
 
                 if is_live:
                     try:
-                        # Use subprocess to run the specific script with poetry
                         ig_cmd = ["poetry", "run", "python", "scripts/publish_instagram.py",
                                   "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL]
                         if args.also_reel:
@@ -834,6 +886,29 @@ def main():
                     except Exception as e:
                         print(f"  [WARN] Instagram post failed for {r['code']}: {e}")
                 else:
+                    print(f"  [WARN] Media not live yet for {r['code']}. Deferring Instagram post to retry pass.")
+                    pending_instagram.append(r)
+
+            if pending_instagram:
+                print("\n  [Instagram] Retry pass for delayed GitHub Pages propagation...")
+                for r in pending_instagram:
+                    print(f"  [IG] Retry: {r['code']} ...")
+                    asset_url = f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/layer.png"
+                    try:
+                        with urllib.request.urlopen(asset_url) as response:
+                            if response.getcode() == 200:
+                                ig_cmd = ["poetry", "run", "python", "scripts/publish_instagram.py",
+                                          "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL]
+                                if args.also_reel:
+                                    ig_cmd.append("--also-reel")
+                                _sp.run(ig_cmd, check=True, cwd=str(PROJECT_ROOT))
+                                continue
+                    except (urllib.error.HTTPError, urllib.error.URLError):
+                        pass
+                    except Exception as e:
+                        print(f"  [WARN] Instagram retry failed for {r['code']}: {e}")
+                        continue
+
                     print(f"  [ERROR] Media did not become live in time. Skipping Instagram post for {r['code']}.")
 
     # TikTok publish (browser automation)
@@ -845,13 +920,21 @@ def main():
             print(f"\n  [TikTok][DryRun] Would post (hook={_hook}) for:")
             for r in results:
                 sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
-                video_candidates = [sns_dir / f"{r['code']}_tiktok_A.mp4", sns_dir / f"{r['code']}_teaser.mp4", sns_dir / f"{r['code']}_tiktok.mp4"]
+                video_candidates = [sns_dir / f"{r['code']}_tiktok_A.mp4", sns_dir / f"{r['code']}_tiktok.mp4", sns_dir / f"{r['code']}_teaser.mp4"]
                 video_path = next((p for p in video_candidates if p.exists()), None)
                 img_dir = Path(r["img_dir"])
                 caption_path = next((img_dir / f for f in ["caption_tiktok.txt", "caption.txt"] if (img_dir / f).exists()), None)
                 print(f"    {r['code']}: video={video_path.name if video_path else 'none'} | caption={caption_path.name if caption_path else 'none'}")
         else:
             print(f"\n  [TikTok] Preparing posts (hook={_hook}, browser automation)...")
+            
+            # Check for pre-existing session error flag
+            _tiktok_session_flag = PROJECT_ROOT / "scripts" / "logs" / "tiktok_session_error.flag"
+            if _tiktok_session_flag.exists():
+                print(f"  [TikTok] ERROR: Session is flagged as expired. Please refresh tiktok_cookies.json.")
+                # We don't skip the whole loop because maybe some succeed or the user fixes it? 
+                # Actually, browser automation will fail anyway. Let's warn and continue (it will hit the error check inside the loop).
+            
             for r in results:
                 sns_dir = PROJECT_ROOT / "docs" / "sns_videos"
                 # Pattern A: _tiktok_A.mp4 (drawtext overlay) must be first to guarantee
@@ -861,15 +944,15 @@ def main():
                 if _hook == "A":
                     video_candidates = [
                         sns_dir / f"{r['code']}_tiktok_A.mp4",  # required: drawtext overlay
-                        sns_dir / f"{r['code']}_teaser.mp4",    # fallback: no overlay (logged as warn)
-                        sns_dir / f"{r['code']}_tiktok.mp4",
+                        sns_dir / f"{r['code']}_tiktok.mp4",    # preferred fallback: updated TikTok export
+                        sns_dir / f"{r['code']}_teaser.mp4",    # older fallback: no overlay (logged as warn)
                         sns_dir / f"{r['code']}_full.mp4",
                         sns_dir / f"{r['code']}.mp4",
                     ]
                 else:
                     video_candidates = [
-                        sns_dir / f"{r['code']}_teaser.mp4",
                         sns_dir / f"{r['code']}_tiktok.mp4",
+                        sns_dir / f"{r['code']}_teaser.mp4",
                         sns_dir / f"{r['code']}_full.mp4",
                         sns_dir / f"{r['code']}.mp4",
                     ]

@@ -88,12 +88,10 @@ function App() {
   const [cellFlash, setCellFlash] = useState<{ type: 'error' } | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const [clearTimeMs, setClearTimeMs] = useState(0);
-  // [Task 4-1] 次のパズルID
   const [nextPuzzleId, setNextPuzzleId] = useState<string | null>(null);
 
-  // ── Analytics: セッション内フラグ（重複送信防止）──
-  const startTrackedRef = useRef(false);   // puzzle_start 送信済み
-  const victoryTrackedRef = useRef(false); // puzzle_complete 送信済み
+  const startTrackedRef = useRef(false);
+  const victoryTrackedRef = useRef(false);
 
   const { id, puzzleFile, urlRemovedPieces, capture, captureAll, angle, autoplay, initialDelayMs, snsMode, snsVideoMode, lang } = useMemo(getParams, []);
   const isTutorialVideo = snsVideoMode === 'tutorial';
@@ -103,19 +101,15 @@ function App() {
     return fromJson.length > 0 ? fromJson : urlRemovedPieces;
   }, [data, urlRemovedPieces]);
 
-  // Stabilize the removedPieces array reference to prevent infinite loops in useGameState
   const stableRemovedPieces = useMemo(() => removedPieces, [JSON.stringify(removedPieces)]);
 
   const { state: gameState, selectPiece, placePiece, unplacePiece, wrongClick, setRotation, setCursorIndex, restart } =
     useGameState(stableRemovedPieces);
 
-  // Game mode: has removed pieces AND not in capture/answer view
   const isGameMode = stableRemovedPieces.length > 0 && !capture && !showAnswer;
 
-  // ── Missing logic for interactive placement ──
   const allEmptyCells = useMemo((): Vec3[] => {
     if (!data) return [];
-    // removed_pieces に属するセルのうち、まだ配置されていないもののみ
     const removedSet = new Set(stableRemovedPieces);
     return data.cells
       .filter(c => removedSet.has(c.piece) && !gameState.placedCells.has(`${c.x},${c.y},${c.z}`))
@@ -154,19 +148,43 @@ function App() {
   }, [data, gameState.selectedPiece, gameState.rotationIndex, sortedAnchors, gameState.cursorIndex]);
 
   const isFitting = gameState.selectedPiece ? fittingRotIndices.includes(gameState.rotationIndex) : false;
+  const isPlacementFocus = gameState.selectedPiece !== null && sortedAnchors.length > 0;
+  const isRotationFocus = gameState.selectedPiece !== null && !isPlacementFocus;
 
-  // ── Analytics: GA4 初期化（一度だけ）──
+  useEffect(() => {
+    const baseTitle = 'SoChi BLOCKS - 3D Viewer';
+
+    if (!id) {
+      document.title = baseTitle;
+      return;
+    }
+
+    const difficulty = getDifficulty(stableRemovedPieces.length);
+    const title = `SoChi BLOCKS Puzzle ${id} (${difficulty})`;
+    const description = lang === 'ja'
+      ? `${difficulty} ? 3D ??? ${id}?????????????????????`
+      : `${difficulty} 3D puzzle ${id}. Combine the pieces and complete the shape.`;
+
+    document.title = title;
+
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'description');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', description);
+  }, [id, lang, stableRemovedPieces.length]);
+
   useEffect(() => {
     initAnalytics(GA4_ID);
   }, []);
 
-  // ── Analytics: パズル ID が変わったらフラグリセット ──
   useEffect(() => {
     startTrackedRef.current = false;
     victoryTrackedRef.current = false;
   }, [id]);
 
-  // ── Analytics: puzzle_open — データ読み込み完了時 ──
   useEffect(() => {
     if (!data || autoplay || !id || !isGameMode) return;
     trackPuzzleOpen({
@@ -174,11 +192,9 @@ function App() {
       difficulty: getDifficulty(stableRemovedPieces.length),
       pieceCount: stableRemovedPieces.length,
     });
-  // data が変わった時だけ発火。stableRemovedPieces は依存に含めるが二重送信しないよう data に紐づける
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  // ── Analytics: puzzle_complete — クリア確定時 ──
   useEffect(() => {
     if (gameState.phase !== 'victory' || clearTimeMs === 0 || autoplay || victoryTrackedRef.current) return;
     victoryTrackedRef.current = true;
@@ -190,7 +206,6 @@ function App() {
     });
   }, [gameState.phase, clearTimeMs, autoplay, id, stableRemovedPieces]);
 
-  // Check local storage for initial tutorial display
   useEffect(() => {
     if (autoplay) return;
     const hasSeen = localStorage.getItem('sochi_tutorial_seen');
@@ -199,7 +214,6 @@ function App() {
     }
   }, [autoplay]);
 
-  // クリアタイム計測
   useEffect(() => {
     if (autoplay) return;
     if (gameState.phase === 'playing' && startTimeRef.current === null) {
@@ -230,19 +244,40 @@ function App() {
       .catch((e) => setError(e.message));
   }, [id, puzzleFile]);
 
-  // [Task 4-1] manifest から次のパズルIDを取得
   useEffect(() => {
-    if (!id || autoplay) return;
+    if (!id || autoplay) {
+      setNextPuzzleId(null);
+      return;
+    }
+
     fetch('puzzles/manifest.json')
-      .then(r => r.ok ? r.json() : null)
+      .then((r) => (r.ok ? r.json() : null))
       .then((manifest: Array<{ id: string }> | null) => {
-        if (!manifest) return;
-        const idx = manifest.findIndex(p => p.id === id);
-        if (idx !== -1 && idx + 1 < manifest.length) {
-          setNextPuzzleId(manifest[idx + 1].id);
+        if (!manifest) {
+          setNextPuzzleId(null);
+          return;
         }
+
+        const [datePart, sequencePart] = id.split('_');
+        const currentSequence = Number(sequencePart);
+        if (!datePart || Number.isNaN(currentSequence)) {
+          setNextPuzzleId(null);
+          return;
+        }
+
+        const nextId = manifest
+          .map((p) => p.id)
+          .filter((puzzleId) => puzzleId.startsWith(`${datePart}_`))
+          .sort()
+          .find((puzzleId) => {
+            const [, candidateSequence] = puzzleId.split('_');
+            const sequence = Number(candidateSequence);
+            return !Number.isNaN(sequence) && sequence > currentSequence;
+          });
+
+        setNextPuzzleId(nextId ?? null);
       })
-      .catch(() => {});
+      .catch(() => setNextPuzzleId(null));
   }, [id, autoplay]);
 
   // [Task 4-3] クリア記録を localStorage に保存（ベストタイムのみ更新）
@@ -486,19 +521,36 @@ function App() {
                   candidateIndices={fittingRotIndices}
                   onSelect={setRotation}
                 />
-                {/* [Task 3-1] ショートカットをラベル付きで表示 */}
-                <div className="controls-hint-group">
-                  <div className="controls-hint-row">
-                    <span className="controls-hint-label">Rotate</span>
-                    <span className="hint-kbd">WASD · Q/E</span>
+                {/* [Task 3-1] Split move/place vs rotate hints */}
+                <div className="controls-hint-groups">
+                  {(isPlacementFocus || isRotationFocus) && (
+                    <div className={`controls-current-cue ${isPlacementFocus ? 'controls-current-cue--place' : 'controls-current-cue--rotate'}`}>
+                      {isPlacementFocus
+                        ? (lang === 'ja' ? '\u4eca: \u7F6E\u304F\u5834\u6240\u3092\u9078\u3076' : 'Now: choosing where to place')
+                        : (lang === 'ja' ? '\u4eca: \u5411\u304D\u3092\u8ABF\u6574\u3059\u308B' : 'Now: adjusting rotation')}
+                    </div>
+                  )}
+                  <div className="controls-hint-group">
+                    <div className="controls-hint-heading">
+                      {lang === 'ja' ? '\uD83D\uDCCD \u7F6E\u304F\u5834\u6240\u3092\u6C7A\u3081\u308B' : 'Choose where to place'}
+                    </div>
+                    <div className="controls-hint-row">
+                      <span className="controls-hint-label">{lang === 'ja' ? '\u4F4D\u7F6E\u5019\u88DC' : 'Position'}</span>
+                      <span className="hint-kbd">R</span>
+                    </div>
+                    <div className="controls-hint-row">
+                      <span className="controls-hint-label">{lang === 'ja' ? '\u914D\u7F6E\u3059\u308B' : 'Place'}</span>
+                      <span className="hint-kbd">Enter</span>
+                    </div>
                   </div>
-                  <div className="controls-hint-row">
-                    <span className="controls-hint-label">Move</span>
-                    <span className="hint-kbd">R</span>
-                  </div>
-                  <div className="controls-hint-row">
-                    <span className="controls-hint-label">Place</span>
-                    <span className="hint-kbd">Enter</span>
+                  <div className="controls-hint-group">
+                    <div className="controls-hint-heading">
+                      {lang === 'ja' ? '\uD83D\uDD04 \u5411\u304D\u3092\u56DE\u3059' : 'Rotate the piece'}
+                    </div>
+                    <div className="controls-hint-row">
+                      <span className="controls-hint-label">{lang === 'ja' ? '\u56DE\u8EE2\u64CD\u4F5C' : 'Rotate'}</span>
+                      <span className="hint-kbd">WASD / Q/E</span>
+                    </div>
                   </div>
                 </div>
               </div>

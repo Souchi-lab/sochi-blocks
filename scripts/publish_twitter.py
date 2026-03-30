@@ -274,12 +274,22 @@ def publish_thread_to_x(
             profile_url = f"{X_HOME_URL}{profile_href}"
             print(f"  Navigating to profile: {profile_url}")
             page.goto(profile_url, wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_timeout(3000)
-            # Find first tweet status link
-            links = page.locator('[data-testid="tweet"] a[href*="/status/"]').all()
+            
+            # Wait for tweets to render
+            try:
+                page.locator("article").first.wait_for(state="visible", timeout=10000)
+            except Exception:
+                print("  Warning: Timeout waiting for articles to render on profile.")
+
+            page.wait_for_timeout(2000)
+            
+            username = profile_href.strip("/")
+            
+            # Find first tweet status link belonging to this user
+            links = page.locator(f'a[href*="/{username}/status/"]').all()
             for link in links:
                 href = link.get_attribute("href") or ""
-                if "/status/" in href:
+                if f"/{username}/status/" in href and "analytics" not in href:
                     tweet_url = f"{X_HOME_URL}{href}" if href.startswith("/") else href
                     print(f"  Latest tweet URL: {tweet_url[:80]}")
                     return tweet_url
@@ -310,6 +320,14 @@ def publish_thread_to_x(
                 browser.close()
                 return False
             print("  Session OK.")
+            
+            # Clear session error flag if it exists (permanent fix)
+            _flag = Path(__file__).resolve().parent / "logs" / "twitter_session_error.flag"
+            if _flag.exists():
+                try:
+                    _flag.unlink()
+                except Exception:
+                    pass
 
             # ---------------------------------------------------------------
             # Step 2: Post Part 0 (main tweet) via compose
@@ -502,6 +520,14 @@ def publish_to_x(
                 return False
 
             print("  Session OK.")
+
+            # Clear session error flag if it exists (permanent fix)
+            _flag = Path(__file__).resolve().parent / "logs" / "twitter_session_error.flag"
+            if _flag.exists():
+                try:
+                    _flag.unlink()
+                except Exception:
+                    pass
 
             # ------------------------------------------------------------------
             # Step 2: Open compose page

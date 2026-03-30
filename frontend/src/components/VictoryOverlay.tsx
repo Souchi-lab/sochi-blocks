@@ -1,4 +1,4 @@
-import { ShareResult } from './ShareResult';
+﻿import { ShareResult } from './ShareResult';
 import { trackNextPuzzle, getDifficulty } from '../utils/analytics';
 
 function formatTime(ms: number): string {
@@ -75,10 +75,11 @@ export function VictoryOverlay({
               difficulty: getDifficulty(removedPieces.length),
             })}
           >
-            Next Puzzle →
+            Try the next puzzle →
           </a>
         )}
       </div>
     </div>
   );
 }
+

@@ -682,6 +682,14 @@ def publish_to_tiktok(
 
             print("  Session OK.")
 
+            # Clear session error flag if it exists (permanent fix)
+            _flag = Path(__file__).resolve().parent / "logs" / "tiktok_session_error.flag"
+            if _flag.exists():
+                try:
+                    _flag.unlink()
+                except Exception:
+                    pass
+
             # ------------------------------------------------------------------
             # Step 2: Upload video
             # ------------------------------------------------------------------
