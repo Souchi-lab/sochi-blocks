@@ -856,24 +856,36 @@ def main():
             # Since we just pushed to GitHub Pages, we wait a bit for it to be live.
             for r in results:
                 print(f"  [IG] Waiting for media to be live: {r['code']} ...")
-                # Check for layer.png as a proxy for the whole folder
-                asset_url = f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/layer.png"
+                asset_rel = r["code"].replace("_", "/")
+                media_urls = [
+                    f"{PAGES_BASE_URL}/images/{asset_rel}/layer.jpg",
+                    f"{PAGES_BASE_URL}/images/{asset_rel}/answer_3d_x.jpg",
+                    f"{PAGES_BASE_URL}/images/{asset_rel}/answer_3d_y.jpg",
+                    f"{PAGES_BASE_URL}/sns_videos/{r['code']}_instagram.mp4",
+                ]
 
                 max_retries = 15
                 retry_wait = 20 # seconds
                 is_live = False
 
                 for attempt in range(1, max_retries + 1):
-                    try:
-                        with urllib.request.urlopen(asset_url) as response:
-                            if response.getcode() == 200:
-                                print(f"    [OK] Media is live! (Attempt {attempt})")
-                                is_live = True
-                                break
-                    except (urllib.error.HTTPError, urllib.error.URLError):
-                        pass
+                    pending_urls = []
+                    for media_url in media_urls:
+                        try:
+                            with urllib.request.urlopen(media_url) as response:
+                                if response.getcode() != 200:
+                                    pending_urls.append(media_url)
+                        except (urllib.error.HTTPError, urllib.error.URLError):
+                            pending_urls.append(media_url)
+
+                    if not pending_urls:
+                        print(f"    [OK] All carousel media are live! (Attempt {attempt})")
+                        is_live = True
+                        break
 
                     print(f"    [...] Still waiting for GitHub Pages... (Attempt {attempt}/{max_retries})")
+                    for pending_url in pending_urls:
+                        print(f"        pending: {pending_url}")
                     time.sleep(retry_wait)
 
                 if is_live:
@@ -893,16 +905,27 @@ def main():
                 print("\n  [Instagram] Retry pass for delayed GitHub Pages propagation...")
                 for r in pending_instagram:
                     print(f"  [IG] Retry: {r['code']} ...")
-                    asset_url = f"{PAGES_BASE_URL}/images/{r['code'].replace('_', '/')}/layer.png"
+                    asset_rel = r["code"].replace("_", "/")
+                    retry_urls = [
+                        f"{PAGES_BASE_URL}/images/{asset_rel}/layer.jpg",
+                        f"{PAGES_BASE_URL}/images/{asset_rel}/answer_3d_x.jpg",
+                        f"{PAGES_BASE_URL}/images/{asset_rel}/answer_3d_y.jpg",
+                        f"{PAGES_BASE_URL}/sns_videos/{r['code']}_instagram.mp4",
+                    ]
                     try:
-                        with urllib.request.urlopen(asset_url) as response:
-                            if response.getcode() == 200:
-                                ig_cmd = ["poetry", "run", "python", "scripts/publish_instagram.py",
-                                          "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL]
-                                if args.also_reel:
-                                    ig_cmd.append("--also-reel")
-                                _sp.run(ig_cmd, check=True, cwd=str(PROJECT_ROOT))
-                                continue
+                        all_live = True
+                        for media_url in retry_urls:
+                            with urllib.request.urlopen(media_url) as response:
+                                if response.getcode() != 200:
+                                    all_live = False
+                                    break
+                        if all_live:
+                            ig_cmd = ["poetry", "run", "python", "scripts/publish_instagram.py",
+                                      "--dir", r["img_dir"], "--base-url", PAGES_BASE_URL]
+                            if args.also_reel:
+                                ig_cmd.append("--also-reel")
+                            _sp.run(ig_cmd, check=True, cwd=str(PROJECT_ROOT))
+                            continue
                     except (urllib.error.HTTPError, urllib.error.URLError):
                         pass
                     except Exception as e:

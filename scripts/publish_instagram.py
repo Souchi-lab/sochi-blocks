@@ -20,6 +20,7 @@ import time
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
+from PIL import Image
 
 # Load .env
 load_dotenv()
@@ -77,6 +78,21 @@ def wait_for_container(ig_id, access_token, container_id, timeout=120):
     print("Timeout waiting for container processing.")
     return False
 
+def _with_cache_buster(url: str, file_path: Path | None = None):
+    version = int(file_path.stat().st_mtime) if file_path and file_path.exists() else int(time.time())
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}v={version}"
+
+def _ensure_jpeg_from_png(png_path: Path) -> Path:
+    jpg_path = png_path.with_suffix(".jpg")
+    if jpg_path.exists() and jpg_path.stat().st_mtime >= png_path.stat().st_mtime:
+        return jpg_path
+
+    with Image.open(png_path) as img:
+        rgb = img.convert("RGB")
+        rgb.save(jpg_path, format="JPEG", quality=95, optimize=True)
+    return jpg_path
+
 def post_to_instagram(asset_dir: Path, base_url: str):
     ig_id, access_token = get_instagram_config()
     if not ig_id:
@@ -124,28 +140,35 @@ def post_to_instagram(asset_dir: Path, base_url: str):
         ]
     teaser_file = next((p for p in teaser_candidates if p.exists()), None)
 
-    image_names = ["layer.png", "answer_3d_x.png", "answer_3d_y.png"]
     media_urls = []
 
     # layer.png FIRST — carousel cover (Instagram profile grid shows 1st slide)
-    if (asset_dir / "layer.png").exists():
-        media_urls.append({"type": "IMAGE", "url": f"{full_base_url}/layer.png"})
+    layer_png = asset_dir / "layer.png"
+    layer_jpg = asset_dir / "layer.jpg"
+    if layer_png.exists():
+        layer_jpg = _ensure_jpeg_from_png(layer_png)
+    if layer_jpg.exists():
+        media_urls.append({"type": "IMAGE", "url": _with_cache_buster(f"{full_base_url}/layer.jpg", layer_jpg)})
 
     # VIDEO after cover
     if teaser_file:
-        teaser_url = f"{base_url}/sns_videos/{teaser_file.name}"
+        teaser_url = _with_cache_buster(f"{base_url}/sns_videos/{teaser_file.name}", teaser_file)
         media_urls.append({"type": "VIDEO", "url": teaser_url})
         print(f"  [Carousel] Using teaser video: {teaser_file.name}")
     else:
         fallback_video = next(asset_dir.glob("*.mp4"), None)
         if fallback_video:
-            media_urls.append({"type": "VIDEO", "url": f"{full_base_url}/{fallback_video.name}"})
+            media_urls.append({"type": "VIDEO", "url": _with_cache_buster(f"{full_base_url}/{fallback_video.name}", fallback_video)})
             print(f"  [Carousel] Using fallback video: {fallback_video.name}")
 
     # Remaining images (skip layer.png, already added)
-    for name in ["answer_3d_x.png", "answer_3d_y.png"]:
-        if (asset_dir / name).exists():
-            media_urls.append({"type": "IMAGE", "url": f"{full_base_url}/{name}"})
+    for stem in ["answer_3d_x", "answer_3d_y"]:
+        png_path = asset_dir / f"{stem}.png"
+        jpg_path = asset_dir / f"{stem}.jpg"
+        if png_path.exists():
+            jpg_path = _ensure_jpeg_from_png(png_path)
+        if jpg_path.exists():
+            media_urls.append({"type": "IMAGE", "url": _with_cache_buster(f"{full_base_url}/{stem}.jpg", jpg_path)})
 
     if not media_urls:
         print("Error: No media files found to post.")
