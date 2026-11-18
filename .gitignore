@@ -61,3 +61,8 @@ backend/scripts/*.mp4
 # Script logs
 scripts/logs/
 scripts/x_post_state.json
+
+# SNS videos: Pages フォルダにはチュートリアルだけ置く
+docs/sns_videos/*
+!docs/sns_videos/tutorial_ja.mp4
+!docs/sns_videos/tutorial_en.mp4
